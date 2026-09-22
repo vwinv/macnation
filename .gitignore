@@ -35,12 +35,19 @@ api_mac_nation/build/
 api_mac_nation/uploads/
 api_mac_nation/data/store.json
 
-# --- mac-nation (Next.js) ---
-mac-nation/.next/
-mac-nation/out/
-mac-nation/dist/
-mac-nation/.vercel/
-mac-nation/mac nation/
+# --- siteweb (Next.js) ---
+siteweb/node_modules/
+siteweb/.next/
+siteweb/out/
+siteweb/dist/
+siteweb/build/
+siteweb/.vercel/
+siteweb/.turbo/
+siteweb/.env
+siteweb/.env.*
+!siteweb/.env.example
+siteweb/*.tsbuildinfo
+siteweb/mac nation/
 
 # --- appmobile (Flutter) ---
 appmobile/.dart_tool/

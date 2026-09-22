@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: mac-nation
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: API_URL
+        sync: false
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      - key: NEXT_PUBLIC_SITE_URL
+        sync: false
+      - key: NEXT_PUBLIC_GOOGLE_CLIENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_APPLE_CLIENT_ID
+        sync: false
+      - key: NEXT_PUBLIC_FACEBOOK_APP_ID
+        sync: false
