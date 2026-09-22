@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import nodemailer, { type Transporter } from 'nodemailer';
 import { normalizePhone } from '../common/phone';
 import { siteUrl } from '../common/site';
 
@@ -33,12 +34,13 @@ function emailHtml(title: string, lines: string[]) {
 }
 
 /**
- * Every method resolves to a boolean and never throws: a missing Twilio or Resend
+ * Every method resolves to a boolean and never throws: a missing mail/SMS
  * key must not turn a successful booking into a failed request.
  */
 @Injectable()
 export class NotifyService {
   private readonly logger = new Logger(NotifyService.name);
+  private smtp: Transporter | null | undefined;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -48,10 +50,6 @@ export class NotifyService {
 
   ownerPhone() {
     return this.env('BOOKING_SMS_TO');
-  }
-
-  ownerEmail() {
-    return this.env('BOOKING_EMAIL_TO');
   }
 
   smsConfigured() {
@@ -136,28 +134,14 @@ export class NotifyService {
     lines: string[];
     clientEmail?: string;
   }) {
-    const owner = this.ownerEmail();
-    if (!owner) return false;
+    const client = (options.clientEmail || '').trim();
+    if (!client) {
+      this.logger.debug('Mail ignoré : pas d’e-mail client.');
+      return false;
+    }
     const text = [options.title, ...options.lines].join('\n');
     const html = emailHtml(options.title, options.lines);
-    const recipients = [owner, options.clientEmail].filter(
-      (value, index, all): value is string =>
-        Boolean(value) && all.indexOf(value) === index,
-    );
-    if (await this.sendWithResend(recipients, options.subject, text, html)) {
-      return true;
-    }
-    const fields: Record<string, string> = {};
-    options.lines.forEach((line, index) => {
-      fields[`ligne_${index + 1}`] = line;
-    });
-    fields.message = text;
-    return this.sendWithFormSubmit(
-      owner,
-      options.clientEmail,
-      options.subject,
-      fields,
-    );
+    return this.sendWithSmtp([client], options.subject, text, html);
   }
 
   private async sendClientEmail(options: {
@@ -168,77 +152,114 @@ export class NotifyService {
   }) {
     const text = [options.title, ...options.lines].join('\n');
     const html = emailHtml(options.title, options.lines);
-    return this.sendWithResend([options.to], options.subject, text, html);
+    return this.sendWithSmtp([options.to], options.subject, text, html);
   }
 
-  private async sendWithResend(
+  private mailFrom() {
+    const address = this.env('MAIL_USER');
+    const name = this.env('MAIL_FROM_NAME') || 'MAC NATION';
+    if (!address) return '';
+    return name ? `"${name}" <${address}>` : address;
+  }
+
+  private smtpTransport() {
+    if (this.smtp !== undefined) return this.smtp;
+    const host = this.env('MAIL_HOST');
+    const user = this.env('MAIL_USER');
+    const pass = this.env('MAIL_PASSWORD').replace(/^["']|["']$/g, '');
+    if (!host || !user || !pass) {
+      this.smtp = null;
+      return this.smtp;
+    }
+    const port = Number(this.env('MAIL_PORT') || 587);
+    this.smtp = nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+      requireTLS: port !== 465,
+    });
+    return this.smtp;
+  }
+
+  private async sendWithSmtp(
     to: string[],
     subject: string,
     text: string,
     html: string,
   ) {
-    const key = this.env('RESEND_API_KEY');
-    const from = this.env('EMAIL_FROM');
-    if (!key || !from || to.length === 0) return false;
+    const transport = this.smtpTransport();
+    const from = this.mailFrom();
+    const recipients = [...new Set(to.filter(Boolean))];
+    if (!transport || !from || recipients.length === 0) return false;
     try {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${key}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ from, to, subject, text, html }),
+      const info = await transport.sendMail({
+        from,
+        to: recipients,
+        subject,
+        text,
+        html,
       });
-      if (!res.ok) {
-        this.logger.warn(`Resend ${res.status}: ${await res.text()}`);
-        return false;
-      }
+      this.logger.log(`SMTP envoyé → ${recipients.join(', ')} (${info.messageId})`);
       return true;
     } catch (error) {
-      this.logger.warn(`Resend injoignable: ${String(error)}`);
+      this.logger.warn(`SMTP échoué: ${String(error)}`);
       return false;
     }
   }
 
-  private async sendWithFormSubmit(
-    owner: string,
-    cc: string | undefined,
-    subject: string,
-    fields: Record<string, string>,
-  ) {
-    const origin = siteUrl(this.config);
-    try {
-      const res = await fetch(
-        `https://formsubmit.co/ajax/${encodeURIComponent(owner)}`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-            Origin: origin,
-            Referer: `${origin}/rendez-vous`,
-          },
-          body: JSON.stringify({
-            ...fields,
-            _subject: subject,
-            _template: 'box',
-            _captcha: 'false',
-            ...(cc ? { _cc: cc } : {}),
-          }),
-        },
-      );
-      const json = (await res.json().catch(() => null)) as {
-        success?: string | boolean;
-      } | null;
-      if (!res.ok || json?.success === 'false' || json?.success === false) {
-        this.logger.warn(`FormSubmit ${res.status}`);
-        return false;
-      }
-      return true;
-    } catch (error) {
-      this.logger.warn(`FormSubmit injoignable: ${String(error)}`);
-      return false;
-    }
+  async quoteReady(input: {
+    name: string;
+    phone: string;
+    email: string;
+    serviceName: string;
+    dateLabel: string;
+    time: string;
+    amountLabel: string;
+  }) {
+    const accountUrl = `${siteUrl(this.config)}/compte`;
+    const lines = [
+      `${input.name}, le devis pour ${input.serviceName} est prêt.`,
+      `${input.dateLabel} à ${input.time}`,
+      `Montant : ${input.amountLabel}`,
+      `Confirme et paie en ligne ou au salon depuis ton compte.`,
+      accountUrl,
+    ];
+    await Promise.allSettled([
+      this.sendEmail({
+        subject: 'MAC NATION : ton devis est prêt',
+        title: 'Ton devis est prêt',
+        lines,
+        clientEmail: input.email || undefined,
+      }),
+      this.sendSms(input.phone, ['MAC NATION : devis', ...lines].join('\n')),
+    ]);
+  }
+
+  async quoteSalonChosen(input: {
+    name: string;
+    phone: string;
+    email: string;
+    serviceName: string;
+    dateLabel: string;
+    time: string;
+    amountLabel: string;
+  }) {
+    const lines = [
+      `${input.name}, tu as choisi de payer au salon.`,
+      `${input.serviceName} · ${input.dateLabel} à ${input.time}`,
+      `Montant : ${input.amountLabel}`,
+      'Présente-toi à Nord Foire. Le salon encaissera sur place.',
+    ];
+    await Promise.allSettled([
+      this.sendEmail({
+        subject: 'MAC NATION : paiement au salon',
+        title: 'Paiement au salon confirmé',
+        lines,
+        clientEmail: input.email || undefined,
+      }),
+      this.sendSms(input.phone, ['MAC NATION : paiement au salon', ...lines].join('\n')),
+    ]);
   }
 
   async bookingCreated(input: {
@@ -250,6 +271,7 @@ export class NotifyService {
     time: string;
     place: 'salon' | 'domicile';
     address: string;
+    quoted?: boolean;
   }) {
     const owner = this.ownerPhone();
     const when = `${input.dateLabel} à ${input.time}`;
@@ -290,9 +312,18 @@ export class NotifyService {
         `${input.time} · ${input.serviceName} · ${lieu}`,
       ),
       this.sendEmail({
-        subject: 'MAC NATION : nouveau RDV',
-        title: 'MAC NATION : nouveau RDV',
-        lines: ownerLines,
+        subject: input.quoted
+          ? 'MAC NATION : demande de devis enregistrée'
+          : 'MAC NATION : votre rendez-vous',
+        title: input.quoted
+          ? 'Ta demande de devis est enregistrée'
+          : 'Votre rendez-vous est enregistré',
+        lines: input.quoted
+          ? [
+              ...clientLines,
+              'Le salon prépare le devis. Tu le recevras par mail, puis tu pourras confirmer et payer en ligne ou au salon.',
+            ]
+          : clientLines,
         clientEmail: input.email || undefined,
       }),
     ]);
@@ -407,8 +438,9 @@ export class NotifyService {
     await Promise.allSettled([
       this.sendEmail({
         subject: `MAC NATION : candidature ${input.jobTitle}`,
-        title: 'Nouvelle candidature',
+        title: 'Nous avons bien reçu ta candidature',
         lines,
+        clientEmail: input.email || undefined,
       }),
       owner
         ? this.sendSms(owner, ['MAC NATION : candidature', ...lines].join('\n'))

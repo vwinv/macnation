@@ -21,6 +21,19 @@ export type PaytechCheckout = {
   token: string;
 };
 
+export type PaymentStatusView = {
+  paid: boolean;
+  status: string;
+  invoiceId?: string;
+  kind?: string;
+  booking?: {
+    dateLabel: string;
+    time: string;
+    serviceName: string;
+    place: string;
+  };
+};
+
 type RequestPaymentResponse = {
   success?: number | boolean;
   token?: string;
@@ -262,20 +275,48 @@ export class PaytechService {
     };
   }
 
-  async refreshPending(pendingId: string) {
+  async refreshPending(pendingId: string): Promise<PaymentStatusView> {
     const pending = await this.store.getPendingPayment(pendingId);
     if (!pending) throw new PaytechError('INVOICE_MISSING');
-    if (pending.invoiceId) {
-      const invoice = await this.store.getInvoice(pending.invoiceId);
-      if (invoice) return invoice;
+
+    if (pending.status !== 'paid' && pending.paytechToken) {
+      await this.settleIfPaytechPaid({
+        token: pending.paytechToken,
+        pendingId: pending.id,
+        paytechRef: pending.paytechRef,
+      });
     }
-    return null;
+
+    const fresh = (await this.store.getPendingPayment(pendingId)) || pending;
+    if (fresh.invoiceId) {
+      return this.viewFromInvoice(fresh.invoiceId, fresh.payload.kind);
+    }
+    return {
+      paid: false,
+      status: fresh.status,
+      kind: fresh.payload.kind,
+      booking:
+        fresh.payload.kind === 'booking'
+          ? {
+              dateLabel: fresh.payload.dateLabel,
+              time: fresh.payload.time,
+              serviceName: fresh.payload.serviceName,
+              place: fresh.payload.place,
+            }
+          : undefined,
+    };
   }
 
-  async refreshInvoice(invoiceId: string) {
+  async refreshInvoice(invoiceId: string): Promise<PaymentStatusView> {
     const invoice = await this.store.getInvoice(invoiceId);
     if (!invoice) throw new PaytechError('INVOICE_MISSING');
-    return invoice;
+    if (invoice.status !== 'payee' && invoice.paydunyaToken) {
+      await this.settleIfPaytechPaid({
+        token: invoice.paydunyaToken,
+        invoiceId: invoice.id,
+      });
+    }
+    return this.viewFromInvoice(invoiceId, invoice.kind);
   }
 
   async handleIpn(raw: unknown) {
@@ -328,8 +369,153 @@ export class PaytechService {
       this.logger.warn(
         `PayTech IPN sans facture (ref=${invoiceId} token=${token})`,
       );
+    } else if (settled.created) {
+      await this.notifyInvoicePaid(settled.invoice);
     }
     return { ok: true as const, event: event || 'sale_complete' };
+  }
+
+  private async settleIfPaytechPaid(opts: {
+    token: string;
+    pendingId?: string;
+    invoiceId?: string;
+    paytechRef?: string;
+  }) {
+    const remote = await this.fetchPaymentStatus(opts.token);
+    if (!this.remotePaid(remote)) return null;
+    const method = paymentMethodFromPaytech(
+      text(remote?.payment_method) || text(remote?.paymentMethod),
+    );
+    if (opts.pendingId) {
+      const settled = await this.store.fulfillPendingPayment({
+        pendingId: opts.pendingId,
+        paytechRef: opts.paytechRef,
+        token: opts.token,
+        method,
+      });
+      if (settled?.created) {
+        await this.notifyFulfilled(
+          settled.pending,
+          settled.generatedPassword,
+        );
+      }
+      return settled;
+    }
+    const settled = await this.store.markInvoicePaid({
+      invoiceId: opts.invoiceId,
+      paydunyaToken: opts.token,
+      method,
+    });
+    if (settled?.created) await this.notifyInvoicePaid(settled.invoice);
+    return settled;
+  }
+
+  private async fetchPaymentStatus(token: string) {
+    if (!token) return null;
+    try {
+      const res = await fetch(
+        `${API_BASE}/payment/get-status?token_payment=${encodeURIComponent(token)}`,
+        {
+          method: 'GET',
+          headers: this.headers('application/json'),
+          signal: AbortSignal.timeout(8_000),
+        },
+      );
+      const json = (await res.json().catch(() => null)) as Record<
+        string,
+        unknown
+      > | null;
+      if (!res.ok) {
+        this.logger.warn(`PayTech get-status ${res.status}`);
+        return json;
+      }
+      return json;
+    } catch (error) {
+      this.logger.warn(`PayTech get-status injoignable: ${String(error)}`);
+      return null;
+    }
+  }
+
+  private remotePaid(json: Record<string, unknown> | null) {
+    if (!json) return false;
+    const nested = [
+      json.data,
+      json.payment,
+      json.result,
+    ].find((value) => value && typeof value === 'object') as
+      | Record<string, unknown>
+      | undefined;
+    const raw = [
+      json.type_event,
+      json.status,
+      json.etat,
+      json.state,
+      json.payment_status,
+      nested?.type_event,
+      nested?.status,
+      nested?.etat,
+      nested?.state,
+      nested?.payment_status,
+    ]
+      .map((value) => text(value).toLowerCase())
+      .find(Boolean);
+    return [
+      'sale_complete',
+      'completed',
+      'complete',
+      'paid',
+      'success',
+      'paye',
+      'payee',
+      'payé',
+    ].includes(raw || '');
+  }
+
+  private async viewFromInvoice(
+    invoiceId: string,
+    kind?: string,
+  ): Promise<PaymentStatusView> {
+    const invoice = await this.store.getInvoice(invoiceId);
+    if (!invoice) {
+      return { paid: false, status: 'pending', invoiceId, kind };
+    }
+    const booking = invoice.bookingId
+      ? await this.store.getBooking(invoice.bookingId)
+      : null;
+    return {
+      paid: invoice.status === 'payee',
+      status: invoice.status,
+      invoiceId: invoice.id,
+      kind: booking ? 'booking' : kind || invoice.kind,
+      booking: booking
+        ? {
+            dateLabel: booking.dateLabel,
+            time: booking.time,
+            serviceName: booking.serviceName,
+            place: booking.place,
+          }
+        : undefined,
+    };
+  }
+
+  private async notifyInvoicePaid(invoice: Invoice) {
+    if (!invoice.bookingId) return;
+    const booking = await this.store.getBooking(invoice.bookingId);
+    if (!booking) return;
+    try {
+      await this.notify.bookingCreated({
+        name: booking.name,
+        phone: booking.phone,
+        email: booking.email,
+        serviceName: booking.serviceName,
+        dateLabel: booking.dateLabel,
+        time: booking.time,
+        place: booking.place,
+        address: booking.address,
+      });
+    } catch (error) {
+      this.logger.warn(`Notification RDV payé échouée: ${String(error)}`);
+    }
   }
 
   private parseIpn(raw: unknown): IpnBody {

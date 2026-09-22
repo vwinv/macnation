@@ -15,11 +15,12 @@ export default function PageHero({
   subtitle?: string;
   image?: string;
   plain?: boolean;
-  overlay?: "default" | "black-white" | "photo";
+  overlay?: "default" | "black-white" | "photo" | "blur";
 }) {
   const showImage = Boolean(image) && !plain && overlay !== "black-white";
   const blackWhite = overlay === "black-white";
   const photo = overlay === "photo";
+  const blur = overlay === "blur";
   return (
     <header
       className={`relative flex w-full flex-col items-center overflow-hidden px-6 pt-32 text-center ${
@@ -29,13 +30,17 @@ export default function PageHero({
             ? "hero-fade-black-white min-h-[70dvh] justify-end pb-20 sm:min-h-[76dvh]"
             : photo
               ? "min-h-[48dvh] justify-end bg-white pb-5 sm:min-h-[54dvh] sm:pb-6"
-              : "min-h-[48dvh] justify-end bg-white pb-12 sm:min-h-[54dvh]"
+              : blur
+                ? "min-h-[48dvh] justify-center bg-black pb-12 sm:min-h-[54dvh]"
+                : "min-h-[48dvh] justify-end bg-white pb-12 sm:min-h-[54dvh]"
       }`}
     >
       {showImage && image ? (
         <>
           <Image src={image} alt="" fill priority className="object-cover object-[50%_42%]" sizes="100vw" />
-          {photo ? null : (
+          {blur ? (
+            <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" />
+          ) : photo ? null : (
             <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-black/35" />
           )}
         </>
@@ -43,7 +48,11 @@ export default function PageHero({
       {kicker || title || subtitle ? (
         <div
           className={`z-10 flex flex-col items-center ${
-            photo ? "absolute inset-x-0 bottom-0 px-6 pb-5 sm:pb-6" : "relative"
+            blur
+              ? "absolute inset-0 justify-center px-6"
+              : photo
+                ? "absolute inset-x-0 bottom-0 px-6 pb-5 sm:pb-6"
+                : "relative"
           }`}
         >
           {kicker ? (
@@ -55,7 +64,7 @@ export default function PageHero({
             <Reveal>
               <h1
                 className={`title1 max-w-4xl text-5xl sm:text-6xl md:text-7xl ${
-                  blackWhite || photo ? "!text-white" : ""
+                  blackWhite || photo || blur ? "!text-white" : ""
                 }`}
               >
                 {title}

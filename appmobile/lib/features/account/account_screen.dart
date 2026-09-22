@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import '../../core/format.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/app_widgets.dart';
+import '../../core/widgets/payment_sheet.dart';
 import '../../data/models.dart';
 import '../../state/app_state.dart';
+import '../pay/soft_pay_screen.dart';
 import 'social_login.dart';
 
 class AccountScreen extends StatelessWidget {
@@ -334,7 +336,11 @@ class _ProfileView extends StatelessWidget {
         if (state.appointments.isEmpty)
           const StrokeCard(child: Text('Aucun rendez-vous pour le moment.'))
         else if (state.appointments.length == 1)
-          _AppointmentTile(appointment: state.appointments.first)
+          _AppointmentTile(
+            appointment: state.appointments.first,
+            onPayOnline: () => _payQuote(context, state.appointments.first),
+            onPaySalon: () => _payQuoteSalon(context, state.appointments.first),
+          )
         else
           SizedBox(
             height: 128,
@@ -345,7 +351,11 @@ class _ProfileView extends StatelessWidget {
               itemBuilder: (context, index) {
                 return SizedBox(
                   width: 268,
-                  child: _AppointmentTile(appointment: state.appointments[index]),
+                  child: _AppointmentTile(
+                    appointment: state.appointments[index],
+                    onPayOnline: () => _payQuote(context, state.appointments[index]),
+                    onPaySalon: () => _payQuoteSalon(context, state.appointments[index]),
+                  ),
                 );
               },
             ),
@@ -378,6 +388,49 @@ class _ProfileView extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  Future<void> _payQuote(BuildContext context, Appointment appointment) async {
+    if (appointment.invoiceId == null || appointment.invoiceId!.isEmpty) return;
+    final user = state.user;
+    if (user == null) return;
+    final method = await showPaymentSheet(
+      context,
+      title: appointment.serviceName,
+      amountLabel: formatFcfa(appointment.total),
+      allowSalon: false,
+    );
+    if (method == null || !context.mounted) return;
+    final paid = await completeOnlinePayment(
+      context,
+      invoiceId: appointment.invoiceId,
+      amount: appointment.total,
+      method: method,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      isBooking: true,
+    );
+    if (paid && context.mounted) {
+      try {
+        await state.refreshAccount();
+      } catch (_) {}
+    }
+  }
+
+  Future<void> _payQuoteSalon(BuildContext context, Appointment appointment) async {
+    try {
+      await state.acceptQuoteAtSalon(appointment.id);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tu paies au salon, Nord Foire.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.toString().replaceFirst('Exception: ', ''))),
+      );
+    }
   }
 
   Future<void> _redeem(BuildContext context) async {
@@ -445,9 +498,15 @@ class _ProfileView extends StatelessWidget {
 }
 
 class _AppointmentTile extends StatelessWidget {
-  const _AppointmentTile({required this.appointment});
+  const _AppointmentTile({
+    required this.appointment,
+    this.onPayOnline,
+    this.onPaySalon,
+  });
 
   final Appointment appointment;
+  final VoidCallback? onPayOnline;
+  final VoidCallback? onPaySalon;
 
   @override
   Widget build(BuildContext context) {
@@ -505,9 +564,104 @@ class _AppointmentTile extends StatelessWidget {
                   '${appointment.time} · ${appointment.location == LocationType.salon ? 'Salon Nord Foire' : 'À domicile'}',
                 ),
                 Text(
-                  '${formatFcfa(appointment.total)} · ${appointment.paid ? 'Payé' : 'À payer au salon'}',
+                  appointment.waitingQuote
+                      ? 'Devis en préparation'
+                      : appointment.paid
+                          ? '${formatFcfa(appointment.total)} · Payé'
+                          : appointment.salonChosen
+                              ? '${formatFcfa(appointment.total)} · Paiement au salon'
+                              : '${formatFcfa(appointment.total)} · Devis prêt',
                   style: const TextStyle(color: AppColors.gold, fontSize: 12),
                 ),
+                if (appointment.waitingQuote || (appointment.quoteReady && !appointment.salonChosen)) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {
+                      if (appointment.waitingQuote) {
+                        showDialog<void>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Devis'),
+                            content: const Text('Devis pas encore disponible.'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.of(ctx).pop(),
+                                child: const Text('Fermer'),
+                              ),
+                            ],
+                          ),
+                        );
+                        return;
+                      }
+                      showDialog<void>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Ton devis'),
+                          content: Text(
+                            '${appointment.serviceName}\n${formatFcfa(appointment.total)}',
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(),
+                              child: const Text('Fermer'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: const Text('Voir le devis'),
+                  ),
+                ],
+                if (appointment.quoteReady && !appointment.salonChosen) ...[
+                  Row(
+                    children: [
+                      TextButton(
+                        onPressed: onPayOnline,
+                        child: const Text('Confirmer'),
+                      ),
+                      TextButton(
+                        onPressed: onPaySalon,
+                        child: const Text('Au salon'),
+                      ),
+                    ],
+                  ),
+                ],
+                if (!appointment.paid) ...[
+                  TextButton(
+                    onPressed: () async {
+                      final ok = await showDialog<bool>(
+                        context: context,
+                        builder: (ctx) => AlertDialog(
+                          title: const Text('Annuler le rendez-vous'),
+                          content: const Text('Tu veux vraiment annuler ce rendez-vous ?'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(false),
+                              child: const Text('Non'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(ctx).pop(true),
+                              child: const Text('Annuler'),
+                            ),
+                          ],
+                        ),
+                      );
+                      if (ok == true && context.mounted) {
+                        try {
+                          await AppScope.of(context).cancelBooking(appointment.id);
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(error.toString().replaceFirst('Exception: ', '')),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text('Annuler le RDV'),
+                  ),
+                ],
               ],
             ),
           ),

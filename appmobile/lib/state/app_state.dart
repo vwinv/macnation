@@ -210,6 +210,16 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> acceptQuoteAtSalon(String bookingId) async {
+    await repository.acceptQuoteAtSalon(bookingId);
+    await refreshAccount();
+  }
+
+  Future<void> cancelBooking(String bookingId) async {
+    await repository.cancelBooking(bookingId);
+    await refreshAccount();
+  }
+
   Future<void> cancelMembership() async {
     await repository.cancelMembership();
     activePlan = null;

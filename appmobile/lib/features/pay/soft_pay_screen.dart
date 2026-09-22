@@ -19,6 +19,7 @@ Future<bool> completeOnlinePayment(
   required String name,
   required String phone,
   String? email,
+  bool isBooking = false,
 }) async {
   if (method == PaymentMethod.salon) return true;
   if ((invoiceId == null || invoiceId.isEmpty) &&
@@ -35,6 +36,7 @@ Future<bool> completeOnlinePayment(
         name: name,
         phone: phone,
         email: email,
+        isBooking: isBooking,
       ),
     ),
   );
@@ -51,6 +53,7 @@ class SoftPayScreen extends StatefulWidget {
     required this.name,
     required this.phone,
     this.email,
+    this.isBooking = false,
   });
 
   final String? invoiceId;
@@ -60,6 +63,7 @@ class SoftPayScreen extends StatefulWidget {
   final String name;
   final String phone;
   final String? email;
+  final bool isBooking;
 
   @override
   State<SoftPayScreen> createState() => _SoftPayScreenState();
@@ -177,17 +181,19 @@ class _SoftPayScreenState extends State<SoftPayScreen> {
               else if (_paid) ...[
                 const Icon(Icons.check_circle, color: AppColors.gold, size: 56),
                 const SizedBox(height: 16),
-                const Text(
-                  'Paiement reçu',
-                  style: TextStyle(
+                Text(
+                  widget.isBooking ? 'Rendez-vous pris' : 'Paiement reçu',
+                  style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  'Merci. À tout à l’heure au salon.',
+                Text(
+                  widget.isBooking
+                      ? 'Ton rendez-vous est bien confirmé. On t’attend au salon.'
+                      : 'Merci. À tout à l’heure au salon.',
                   textAlign: TextAlign.center,
                 ),
               ] else ...[

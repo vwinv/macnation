@@ -16,6 +16,12 @@ type SoftPayResult = {
   error?: string;
 };
 
+type PayStatus = {
+  paid?: boolean;
+  kind?: string;
+  booking?: { dateLabel: string; time: string; serviceName: string };
+};
+
 type Props = {
   invoiceId?: string;
   pendingId?: string;
@@ -26,6 +32,8 @@ type Props = {
   hideAmount?: boolean;
   hideMethods?: boolean;
   accountCreated?: boolean;
+  kind?: "booking" | "boutique" | "abonnement";
+  onPaid?: () => void;
 };
 
 const METHODS: { id: SoftPayMethod; label: string; hint: string }[] = [
@@ -51,7 +59,7 @@ async function sessionExists() {
   }
 }
 
-export default function SoftPay({ invoiceId, pendingId, amount, name, phone, email, hideAmount, hideMethods, accountCreated }: Props) {
+export default function SoftPay({ invoiceId, pendingId, amount, name, phone, email, hideAmount, hideMethods, accountCreated, kind, onPaid }: Props) {
   const [method, setMethod] = useState<SoftPayMethod | undefined>(() =>
     hideMethods ? undefined : suggestedMethod(phone),
   );
@@ -60,11 +68,12 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
   const [sending, setSending] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [paid, setPaid] = useState(false);
+  const [paidBooking, setPaidBooking] = useState<PayStatus["booking"]>();
   const [result, setResult] = useState<SoftPayResult | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
-    if (!waiting || paid) return;
+    if (paid || (!pendingId && !invoiceId)) return;
     let stop = false;
     async function tick() {
       const query = pendingId
@@ -73,8 +82,11 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
       const res = await fetch(`/api/paytech/status?${query}`, {
         cache: "no-store",
       });
-      const json = (await res.json().catch(() => null)) as { paid?: boolean } | null;
-      if (!stop && json?.paid) setPaid(true);
+      const json = (await res.json().catch(() => null)) as PayStatus | null;
+      if (stop || !json?.paid) return;
+      setPaidBooking(json.booking);
+      setPaid(true);
+      onPaid?.();
     }
     const id = window.setInterval(() => void tick(), 3000);
     void tick();
@@ -82,7 +94,7 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
       stop = true;
       window.clearInterval(id);
     };
-  }, [waiting, paid, invoiceId, pendingId, method]);
+  }, [paid, invoiceId, pendingId, onPaid]);
 
   async function pay() {
     setError("");
@@ -137,13 +149,22 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
   }
 
   if (paid) {
+    const bookingOk = kind === "booking" || Boolean(paidBooking);
     return (
       <div className="text-center">
         <p className="text-xs tracking-[0.22em] text-[#e0b12c]">MAC NATION</p>
-        <h2 className="font-bebas mt-3 text-5xl text-black">Payé</h2>
-        <p className="mt-3 text-sm text-gray-400">{formatFcfa(amount)}. Merci, à tout à l’heure au salon.</p>
-        <Link href="/" className="btn-gold mt-8 inline-flex h-12 items-center justify-center rounded-lg px-6 text-sm font-medium">
-          Retour au site
+        <h2 className="font-bebas mt-3 text-5xl text-black">
+          {bookingOk ? "Rendez-vous pris" : "Payé"}
+        </h2>
+        <p className="mt-3 text-sm text-gray-400">
+          {bookingOk
+            ? `Merci ${name}. Ton rendez-vous${
+                paidBooking ? ` du ${paidBooking.dateLabel} à ${paidBooking.time}` : ""
+              } est bien confirmé. On t’attend au salon.`
+            : `${formatFcfa(amount)}. Merci, à tout à l’heure au salon.`}
+        </p>
+        <Link href="/compte" className="btn-gold mt-8 inline-flex h-12 items-center justify-center rounded-lg px-6 text-sm font-medium">
+          Voir mon compte
         </Link>
       </div>
     );

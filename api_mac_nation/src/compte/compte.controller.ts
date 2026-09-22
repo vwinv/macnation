@@ -6,6 +6,7 @@ import {
   Get,
   HttpCode,
   Logger,
+  Param,
   Patch,
   Post,
   Res,
@@ -19,7 +20,9 @@ import { AuthService } from '../auth/auth.service';
 import { CurrentClient } from '../auth/current-client.decorator';
 import { ClientsService } from '../clients/clients.service';
 import { clearClientCookie, setClientCookie } from '../common/cookies';
+import { formatFcfa } from '../common/money';
 import { isSnMobile, normalizePhone } from '../common/phone';
+import { NotifyService } from '../notify/notify.service';
 import { hashPassword, isPassword, passwordOk } from '../common/password';
 import { OauthError, OauthService } from '../oauth/oauth.service';
 import { StoreService } from '../store/store.service';
@@ -44,6 +47,7 @@ export class CompteController {
     private readonly clients: ClientsService,
     private readonly oauth: OauthService,
     private readonly store: StoreService,
+    private readonly notify: NotifyService,
   ) {}
 
   @Post('login')
@@ -129,6 +133,37 @@ export class CompteController {
   @UseGuards(AuthGuard)
   me(@CurrentClient() client: Client) {
     return this.clients.dashboard(client);
+  }
+
+  @Post('bookings/:id/salon')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async acceptQuoteAtSalon(
+    @Param('id') id: string,
+    @CurrentClient() client: Client,
+  ) {
+    const booking = await this.store.acceptQuoteAtSalon(id, client);
+    await this.notify.quoteSalonChosen({
+      name: booking.name,
+      phone: booking.phone,
+      email: booking.email,
+      serviceName: booking.serviceName,
+      dateLabel: booking.dateLabel,
+      time: booking.time,
+      amountLabel: formatFcfa(booking.amount),
+    });
+    return { ok: true, booking };
+  }
+
+  @Post('bookings/:id/cancel')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async cancelBooking(
+    @Param('id') id: string,
+    @CurrentClient() client: Client,
+  ) {
+    const booking = await this.store.cancelClientBooking(id, client);
+    return { ok: true, booking };
   }
 
   @Patch('profile')

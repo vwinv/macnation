@@ -61,7 +61,9 @@ export function asInvoiceLines(raw: unknown): InvoiceLine[] {
       return {
         name: typeof item.name === 'string' ? item.name.trim() : '',
         qty: Number(item.qty) || 0,
-        unitPrice: Number(item.unitPrice) || 0,
+        unitPrice: Number.isFinite(Number(item.unitPrice))
+          ? Number(item.unitPrice)
+          : 0,
       };
     })
     .filter((line) => line.name && line.qty > 0);
@@ -89,6 +91,14 @@ export function parsePaymentMethod(value?: string): PaymentMethod {
 
 export function isHomeVisitService(serviceId: string) {
   return serviceId === 'domicile';
+}
+
+export function isQuotedService(
+  price?: number | null,
+  priceLabel?: string | null,
+) {
+  if (price == null) return true;
+  return /sur\s*devis/i.test(priceLabel || '');
 }
 
 export function bookingAmount(

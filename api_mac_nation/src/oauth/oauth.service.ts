@@ -62,12 +62,23 @@ export class OauthService {
     return '';
   }
 
+  appleAudiences() {
+    return [
+      this.env('APPLE_CLIENT_ID', 'NEXT_PUBLIC_APPLE_CLIENT_ID'),
+      this.env('APPLE_BUNDLE_ID', 'APPLE_IOS_CLIENT_ID'),
+    ].filter(Boolean);
+  }
+
   publicConfig() {
+    const apple = this.env('APPLE_CLIENT_ID', 'NEXT_PUBLIC_APPLE_CLIENT_ID');
+    const origin = siteUrl(this.config);
     return {
       google: this.env('GOOGLE_CLIENT_ID', 'NEXT_PUBLIC_GOOGLE_CLIENT_ID'),
-      apple: this.env('APPLE_CLIENT_ID', 'NEXT_PUBLIC_APPLE_CLIENT_ID'),
+      apple,
+      appleEnabled: this.appleAudiences().length > 0,
+      appleRedirect: `${origin}/compte/login`,
       facebook: this.env('FACEBOOK_APP_ID', 'NEXT_PUBLIC_FACEBOOK_APP_ID'),
-      siteUrl: siteUrl(this.config),
+      siteUrl: origin,
     };
   }
 
@@ -140,11 +151,11 @@ export class OauthService {
     credential: string,
     nonce?: string,
   ): Promise<VerifiedOauth> {
-    const clientId = this.publicConfig().apple;
-    if (!clientId) throw new OauthError('OAUTH_MISSING');
+    const audiences = this.appleAudiences();
+    if (!audiences.length) throw new OauthError('OAUTH_MISSING');
     const { payload } = await jwtVerify(credential, appleJwks, {
       issuer: 'https://appleid.apple.com',
-      audience: clientId,
+      audience: audiences,
     });
     if (nonce) {
       const expected = sha256(nonce);

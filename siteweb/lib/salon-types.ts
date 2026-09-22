@@ -25,8 +25,10 @@ export type Booking = {
   status: BookingStatus;
   amount: number;
   paymentStatus: PaymentStatus;
+  paymentMethod?: PaymentMethod;
   invoiceId?: string;
   clientId?: string;
+  quoted?: boolean;
 };
 
 export type Invoice = {

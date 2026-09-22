@@ -95,16 +95,22 @@ export async function settlePaytech(invoiceId: string) {
   await apiFetch(`/api/paytech/status?${query.toString()}`);
 }
 
-export async function settlePaytechPending(pendingId: string): Promise<{
+export type PaytechStatus = {
   paid: boolean;
   invoiceId?: string;
-}> {
+  kind?: string;
+  booking?: { dateLabel: string; time: string; serviceName: string; place: string };
+};
+
+export async function settlePaytechPending(pendingId: string): Promise<PaytechStatus> {
   const query = new URLSearchParams({ pending: pendingId });
   const res = await apiFetch(`/api/paytech/status?${query.toString()}`);
   if (!res.ok) return { paid: false };
-  const json = (await res.json().catch(() => null)) as {
-    paid?: boolean;
-    invoiceId?: string;
-  } | null;
-  return { paid: json?.paid === true, invoiceId: json?.invoiceId };
+  const json = (await res.json().catch(() => null)) as PaytechStatus | null;
+  return {
+    paid: json?.paid === true,
+    invoiceId: json?.invoiceId,
+    kind: json?.kind,
+    booking: json?.booking,
+  };
 }

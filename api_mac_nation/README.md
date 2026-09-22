@@ -18,11 +18,6 @@ npm run start:dev
 
 Santé : [http://localhost:3001/api/health](http://localhost:3001/api/health)
 
-Compte démo (seed au premier lancement) :
-
-- téléphone `771234567`
-- mot de passe `macnation1`
-
 ## Auth
 
 - **App mobile** : `Authorization: Bearer <JWT>` (30 jours, téléphone + mot de passe, ou `POST /api/auth/oauth`).
@@ -56,6 +51,13 @@ Les anciens IDs app (`coupe-barbe`, `enfant`, `pommade-hold`…) sont acceptés.
 | GET | `/api/invoices/:id` | non (page paiement) |
 
 Alias site (cookies) : `/api/compte/login|register|logout|session|me|profile|redeem|membership|oauth`.
+
+## Sign in with Apple
+
+- `APPLE_CLIENT_ID` = Services ID web (`com.macnation.web`)
+- `APPLE_BUNDLE_ID` = bundle iOS (`com.macnation.app`)
+- Return URL Apple : `{SITE_URL}/compte/login`
+- Fichier de domaine : `/.well-known/apple-developer-domain-association.txt` sur le site (`APPLE_DOMAIN_ASSOCIATION`)
 
 ## Admin
 

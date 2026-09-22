@@ -2,8 +2,10 @@
 
 import { FormEvent, Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { CaretLeft, CaretRight, CheckCircle } from "@phosphor-icons/react";
-import { bookingAmount, DOMICILE_FEE, formatFcfa } from "@/lib/money";
+import { useRouter } from "next/navigation";
+import { bookingAmount, DOMICILE_FEE, formatFcfa, isQuotedService } from "@/lib/money";
 import SoftPay from "@/components/SoftPay";
+import { BOOKING_RESET_EVENT, BOOKING_SERVICE_EVENT, takeBookingService } from "@/lib/booking-intent";
 
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"] as const;
 const MONTHS = [
@@ -21,7 +23,8 @@ const MONTHS = [
   "Décembre",
 ] as const;
 
-const STEP_LABELS = ["Prestation", "Créneau", "Paiement"] as const;
+const STEP_LABELS_PAY = ["Prestation", "Créneau", "Paiement"] as const;
+const STEP_LABELS_QUOTE = ["Prestation", "Créneau", "Infos"] as const;
 
 type Confirmation = {
   name: string;
@@ -88,12 +91,13 @@ function servicePriceLabel(item: BookingService) {
 }
 
 function quotedPriceLabel(item: BookingService, place: "salon" | "domicile") {
+  if (isQuotedService(item.price, item.priceLabel)) return item.priceLabel || "Sur devis";
   if (place !== "domicile" || item.id === "domicile") return servicePriceLabel(item);
-  if (item.price != null) return formatFcfa(bookingAmount(item.price, place, item.id));
-  return `${item.priceLabel || "Sur devis"} + ${formatFcfa(DOMICILE_FEE)}`;
+  return formatFcfa(bookingAmount(item.price ?? 0, place, item.id));
 }
 
-function StepsBar({ step }: { step: number }) {
+function StepsBar({ step, onQuote }: { step: number; onQuote: boolean }) {
+  const labels = onQuote ? STEP_LABELS_QUOTE : STEP_LABELS_PAY;
   return (
     <div
       className="flex items-start"
@@ -103,7 +107,7 @@ function StepsBar({ step }: { step: number }) {
       aria-valuenow={step + 1}
       aria-label="Étapes de réservation"
     >
-      {STEP_LABELS.map((label, i) => (
+      {labels.map((label, i) => (
         <Fragment key={label}>
           {i > 0 ? (
             <div className={`mx-2 mt-3 h-px min-w-4 flex-1 ${i <= step ? "bg-[#e0b12c]" : "bg-black/10"}`} />
@@ -139,6 +143,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<Confirmation | null>(null);
+  const [paidOk, setPaidOk] = useState(false);
   const [payNow, setPayNow] = useState(true);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -148,19 +153,44 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
   const [dayClosed, setDayClosed] = useState("");
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [services, setServices] = useState<BookingService[]>([]);
-  const [serviceId, setServiceId] = useState(initialServiceId || "");
+  const [serviceId, setServiceId] = useState("");
   const [hours, setHours] = useState<ScheduleHour[]>([]);
   const [closedDates, setClosedDates] = useState<string[]>([]);
+  const router = useRouter();
 
   const service = services.find((s) => s.id === serviceId) || null;
+  const onQuote = service ? isQuotedService(service.price, service.priceLabel) : false;
 
   useEffect(() => {
-    if (!initialServiceId) return;
-    if (services.some((item) => item.id === initialServiceId)) {
-      setServiceId(initialServiceId);
-      if (initialServiceId === "domicile") setPlace("domicile");
+    if (onQuote) setPayNow(false);
+  }, [onQuote]);
+
+  useEffect(() => {
+    function applyService(id: string) {
+      setServiceId(id);
+      setPlace(id === "domicile" ? "domicile" : "salon");
     }
-  }, [initialServiceId, services]);
+
+    const stored = takeBookingService();
+    const fromUrl = new URLSearchParams(window.location.search).get("service") || "";
+    const picked = stored || fromUrl || "";
+    if (picked) applyService(picked);
+    if (fromUrl) router.replace("/rendez-vous", { scroll: false });
+
+    function onReset() {
+      applyService("");
+    }
+    function onPicked(event: Event) {
+      const id = (event as CustomEvent<string>).detail || takeBookingService();
+      applyService(id);
+    }
+    window.addEventListener(BOOKING_RESET_EVENT, onReset);
+    window.addEventListener(BOOKING_SERVICE_EVENT, onPicked);
+    return () => {
+      window.removeEventListener(BOOKING_RESET_EVENT, onReset);
+      window.removeEventListener(BOOKING_SERVICE_EVENT, onPicked);
+    };
+  }, [router]);
 
   useEffect(() => {
     fetch("/api/catalog/services", { cache: "no-store" })
@@ -314,7 +344,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
           time,
           place,
           address: confirmation.address,
-          payNow,
+          payNow: onQuote ? false : payNow,
         }),
       });
       const json = (await res.json().catch(() => null)) as {
@@ -349,6 +379,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
 
   function reset() {
     setDone(null);
+    setPaidOk(false);
     setStep(0);
     setSelected(null);
     setTime("");
@@ -364,17 +395,29 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
     <div ref={box} className="scroll-mt-28 rounded-2xl bg-gray-950 p-6 stroke-gradient [--stroke-opacity:0.2] sm:p-8">
       {done ? (
         <div className="flex flex-col items-start gap-5">
-          {done.pendingId ? null : <CheckCircle size={42} weight="fill" className="text-[#e0b12c]" />}
+          {paidOk || !done.pendingId ? <CheckCircle size={42} weight="fill" className="text-[#e0b12c]" /> : null}
           <div>
             <p className="font-bebas text-4xl text-black">
-              {done.pendingId ? "Payer pour confirmer" : done.loginRequired ? "Connecte-toi pour confirmer" : "Rendez-vous demandé"}
+              {paidOk
+                ? "Rendez-vous pris"
+                : done.pendingId
+                  ? "Payer pour confirmer"
+                  : /sur devis/i.test(done.service)
+                    ? "Demande enregistrée"
+                    : done.loginRequired
+                    ? "Connecte-toi pour confirmer"
+                    : "Rendez-vous demandé"}
             </p>
             <p className="mt-2 text-sm text-gray-400">
-              {done.pendingId
-                ? `Merci ${done.name}. Le rendez-vous n’est enregistré qu’après le paiement Wave, Orange Money ou Free Money.`
-                : done.loginRequired
-                  ? `Merci ${done.name}. Ton rendez-vous est enregistré. Connecte-toi pour le confirmer.`
-                  : `Merci ${done.name}. Un SMS, un WhatsApp et un email de confirmation partent au ${done.phone}${done.email ? ` et ${done.email}` : ""}.`}
+              {paidOk
+                ? `Merci ${done.name}. Ton rendez-vous du ${done.dateLabel} à ${done.time} est bien confirmé. Un e-mail part vers ${done.email || done.phone}.`
+                : done.pendingId
+                  ? `Merci ${done.name}. Dès que le paiement Wave, Orange Money ou Free Money est validé, ton rendez-vous est confirmé automatiquement.`
+                  : /sur devis/i.test(done.service)
+                    ? `Merci ${done.name}. Le tarif se confirme au salon, sans paiement en ligne. Un e-mail part vers ${done.email || done.phone}.`
+                  : done.loginRequired
+                    ? `Merci ${done.name}. Ton rendez-vous est enregistré. Connecte-toi pour le confirmer.`
+                    : `Merci ${done.name}. Un e-mail de confirmation part au ${done.email || done.phone}.`}
             </p>
           </div>
           <ul className="w-full space-y-3 border-y border-black/10 py-5 text-sm text-black">
@@ -410,7 +453,9 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                 phone={done.phone}
                 email={done.email}
                 accountCreated={done.accountCreated}
+                kind="booking"
                 hideMethods
+                onPaid={() => setPaidOk(true)}
               />
             </div>
           ) : done.invoiceId && (done.amount || 0) > 0 ? (
@@ -422,7 +467,9 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                 phone={done.phone}
                 email={done.email}
                 accountCreated={done.accountCreated}
+                kind="booking"
                 hideMethods
+                onPaid={() => setPaidOk(true)}
               />
             </div>
           ) : null}
@@ -432,35 +479,37 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
         </div>
       ) : (
         <form noValidate onSubmit={onSubmit} className="flex flex-col gap-7">
-          <StepsBar step={step} />
+          <StepsBar step={step} onQuote={onQuote} />
 
           {step === 0 ? (
             <>
-              <div>
-                <p className="text-sm font-medium text-black">Paiement du rendez-vous</p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      { id: "now", label: "Payer maintenant", hint: "Wave · Orange · Free" },
-                      { id: "salon", label: "Payer au salon", hint: "Espèces ou Mobile Money" },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setPayNow(opt.id === "now")}
-                      className={`cursor-pointer rounded-xl px-4 py-3 text-left transition-colors ${
-                        (opt.id === "now") === payNow ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
-                      }`}
-                    >
-                      <span className="block text-sm font-medium">{opt.label}</span>
-                      <span className={`mt-0.5 block text-xs ${(opt.id === "now") === payNow ? "text-white/70" : "text-gray-500"}`}>
-                        {opt.hint}
-                      </span>
-                    </button>
-                  ))}
+              {service && !onQuote ? (
+                <div>
+                  <p className="text-sm font-medium text-black">Paiement du rendez-vous</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    {(
+                      [
+                        { id: "now", label: "Payer maintenant", hint: "Wave · Orange · Free" },
+                        { id: "salon", label: "Payer au salon", hint: "Espèces ou Mobile Money" },
+                      ] as const
+                    ).map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setPayNow(opt.id === "now")}
+                        className={`cursor-pointer rounded-xl px-4 py-3 text-left transition-colors ${
+                          (opt.id === "now") === payNow ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                        }`}
+                      >
+                        <span className="block text-sm font-medium">{opt.label}</span>
+                        <span className={`mt-0.5 block text-xs ${(opt.id === "now") === payNow ? "text-white/70" : "text-gray-500"}`}>
+                          {opt.hint}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              ) : null}
 
               <div>
                 <p className="text-sm font-medium text-black">Lieu</p>
@@ -516,7 +565,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                     <span className="shrink-0 font-medium text-black">{quotedPriceLabel(service, place)}</span>
                   ) : null}
                 </div>
-                {place === "domicile" && service && service.id !== "domicile" ? (
+                {place === "domicile" && service && service.id !== "domicile" && !onQuote ? (
                   <span className="text-xs text-gray-500">Dont {formatFcfa(DOMICILE_FEE)} de déplacement.</span>
                 ) : null}
               </label>
@@ -683,7 +732,9 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                     {dateLabel(selected)} · {timeLabel || time} · {place === "domicile" ? "À domicile" : "Salon"}
                   </p>
                   <p className="mt-2 font-medium text-black">{quotedPriceLabel(service, place)}</p>
-                  {place === "domicile" && service.id !== "domicile" ? (
+                  {onQuote ? (
+                    <p className="mt-1 text-xs text-gray-500">Pas de paiement en ligne. Tarif confirmé au salon.</p>
+                  ) : place === "domicile" && service.id !== "domicile" ? (
                     <p className="mt-1 text-xs text-gray-500">Dont {formatFcfa(DOMICILE_FEE)} de déplacement</p>
                   ) : null}
                 </div>
@@ -760,7 +811,15 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                   disabled={sending}
                   className="btn-gold h-12 cursor-pointer rounded-lg text-sm font-medium active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 >
-                  {sending ? (payNow ? "Préparation du paiement…" : "Envoi…") : payNow ? "Réserver et payer" : "Confirmer"}
+                  {sending
+                    ? onQuote || !payNow
+                      ? "Envoi…"
+                      : "Préparation du paiement…"
+                    : onQuote
+                      ? "Demander le rendez-vous"
+                      : payNow
+                        ? "Réserver et payer"
+                        : "Confirmer"}
                 </button>
               </div>
               <p className="text-xs text-gray-500">

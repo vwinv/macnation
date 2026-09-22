@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { List, X } from "@phosphor-icons/react";
 import { navLinks } from "@/lib/assets";
 import AccountNav from "@/components/AccountNav";
+import ReserveLink from "@/components/ReserveLink";
 
 export default function Header() {
   const pathname = usePathname();
@@ -60,12 +61,9 @@ export default function Header() {
           >
             Candidater
           </Link>
-          <Link
-            href="/rendez-vous"
-            className="btn-gold relative inline-flex h-10 cursor-pointer items-center justify-center rounded-lg px-5 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] sm:px-8"
-          >
+          <ReserveLink className="btn-gold relative inline-flex h-10 cursor-pointer items-center justify-center rounded-lg px-5 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] sm:px-8">
             Réserver
-          </Link>
+          </ReserveLink>
           <button
             type="button"
             aria-label={open ? "Fermer le menu" : "Open menu"}

@@ -34,7 +34,7 @@ Ce fichier liste **uniquement ce que toi tu dois fournir ou configurer**. Le cod
 
 Sans ces clés, les RDV, candidatures et le **formulaire Contact** s’enregistrent ou répondent OK, mais le salon **ne reçoit rien** par mail/SMS.
 
-- [ ] Resend : `RESEND_API_KEY` + `EMAIL_FROM` + `BOOKING_EMAIL_TO` (boîte du salon)
+- [x] SMTP Gmail (`MAIL_USER` / `MAIL_PASSWORD`) — mails vers le client
 - [ ] Twilio SMS / WhatsApp (optionnel) : `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, numéros From
 
 ---
@@ -71,8 +71,14 @@ Sans ces IDs, le bouton Facebook répond « pas encore activée ».
 
 - [ ] `GOOGLE_CLIENT_ID` (client Web — même ID pour le site et `serverClientId` de l’app)
 - [ ] SHA-1 Android dans Google Cloud + `GIDClientID` / URL scheme iOS
-- [ ] `APPLE_CLIENT_ID` (Services ID) + domaine / return URL Apple
-- [ ] Capability **Sign in with Apple** sur le bundle iOS (ne marche pas sur Android)
+- [x] `APPLE_CLIENT_ID=com.macnation.web` (Services ID) dans le `.env` de l’API
+- [x] `APPLE_BUNDLE_ID=com.macnation.app` + entitlement iOS **Sign in with Apple**
+- [ ] Apple Developer → **App ID** `com.macnation.app` avec capability Sign in with Apple
+- [ ] Apple Developer → **Services ID** `com.macnation.web` lié à cet App ID
+- [ ] Domaines : `mac-nation.vercel.app` (et le vrai domaine du site)
+- [ ] Return URLs : `https://mac-nation.vercel.app/compte/login` et `http://localhost:3000/compte/login`
+- [ ] Télécharger le fichier de vérif domaine → `APPLE_DOMAIN_ASSOCIATION` sur Vercel
+- [ ] Tester « Continuer avec Apple » sur Safari (Mac / iPhone) et dans l’app iOS
 
 ---
 

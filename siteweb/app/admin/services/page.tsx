@@ -139,6 +139,8 @@ export default function AdminServicesPage() {
   function openNewService() {
     setEditingService(null);
     setServiceForm(EMPTY_SERVICE);
+    setPhotoFile(null);
+    setPhotoPreview("");
     setError("");
     setServiceOpen(true);
   }
@@ -152,6 +154,8 @@ export default function AdminServicesPage() {
       price: item.price == null ? "" : String(item.price),
       description: item.description,
     });
+    setPhotoFile(null);
+    setPhotoPreview(item.image);
     setError("");
     setServiceOpen(true);
   }
@@ -183,7 +187,7 @@ export default function AdminServicesPage() {
     if (photoPreview.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
     if (!file) {
       setPhotoFile(null);
-      setPhotoPreview(editingProduct?.image || "");
+      setPhotoPreview(editingService?.image || editingProduct?.image || "");
       return;
     }
     if (file.size > 5_000_000) {
@@ -200,22 +204,23 @@ export default function AdminServicesPage() {
     setBusy("service");
     setError("");
     try {
+      const payload = new FormData();
+      payload.append("name", serviceForm.name);
+      payload.append("duration", serviceForm.duration);
+      payload.append("category", serviceForm.category);
+      payload.append("description", serviceForm.description);
+      payload.append("price", serviceForm.price.trim());
+      if (photoFile) payload.append("photo", photoFile);
       const res = await fetch(editingService ? `/api/admin/services/${editingService.id}` : "/api/admin/services", {
         method: editingService ? "PATCH" : "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: serviceForm.name,
-          duration: serviceForm.duration,
-          category: serviceForm.category,
-          description: serviceForm.description,
-          price: serviceForm.price.trim() === "" ? null : Number(serviceForm.price),
-        }),
+        body: payload,
       });
       const json = (await res.json().catch(() => null)) as { error?: string } | null;
       if (!res.ok) {
         setError(json?.error || "Enregistrement impossible.");
         return;
       }
+      if (photoPreview.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
       setServiceOpen(false);
       await load();
     } finally {
@@ -424,7 +429,14 @@ export default function AdminServicesPage() {
           {services.map((item) => (
             <li key={item.id} className={`rounded-2xl bg-gray-950 p-5 ring-1 ring-black/10 ${item.active ? "" : "opacity-60"}`}>
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
+                <div className="flex min-w-0 flex-1 gap-4">
+                  {item.image ? (
+                    <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl bg-black ring-1 ring-black/10">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.image} alt="" className="h-full w-full object-cover" />
+                    </div>
+                  ) : null}
+                  <div>
                   <p className="text-xs tracking-wide text-[#e0b12c]">{item.category}</p>
                   <p className="font-bebas mt-1 text-3xl text-black">{item.name}</p>
                   <p className="mt-1 text-sm text-gray-400">
@@ -432,6 +444,7 @@ export default function AdminServicesPage() {
                     {item.active ? "" : " · retiré du catalogue"}
                   </p>
                   {item.description ? <p className="mt-2 max-w-2xl text-sm text-gray-500">{item.description}</p> : null}
+                  </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
                   <button type="button" disabled={Boolean(busy)} onClick={() => openEditService(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
@@ -562,15 +575,15 @@ export default function AdminServicesPage() {
               </button>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm text-gray-800 sm:col-span-2">
+              <label className="flex flex-col gap-2 text-sm text-black sm:col-span-2">
                 Nom *
                 <input value={serviceForm.name} onChange={(e) => setServiceForm((current) => ({ ...current, name: e.target.value }))} required className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Durée
                 <input value={serviceForm.duration} onChange={(e) => setServiceForm((current) => ({ ...current, duration: e.target.value }))} placeholder="30 min" className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Catégorie
                 <select value={serviceForm.category} onChange={(e) => setServiceForm((current) => ({ ...current, category: e.target.value }))} className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50">
                   {SERVICE_CATEGORIES.map((item) => (
@@ -580,12 +593,28 @@ export default function AdminServicesPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800 sm:col-span-2">
+              <label className="flex flex-col gap-2 text-sm text-black sm:col-span-2">
                 Prix (F CFA)
                 <input value={serviceForm.price} onChange={(e) => setServiceForm((current) => ({ ...current, price: e.target.value }))} inputMode="numeric" placeholder="Vide = sur devis" className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
             </div>
-            <label className="mt-3 flex flex-col gap-2 text-sm text-gray-800">
+            <label className="mt-3 flex flex-col gap-2 text-sm text-black">
+              Photo
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
+                onChange={(e) => onPhotoChange(e.target.files?.[0] || null)}
+                className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-black file:mr-3 file:rounded-md file:border-0 file:bg-[#e0b12c] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-black"
+              />
+              <span className="text-xs text-gray-500">JPG, PNG ou WEBP · 5 Mo max. Envoyée sur Cloudinary.</span>
+            </label>
+            {photoPreview ? (
+              <div className="relative mt-3 aspect-square w-32 overflow-hidden rounded-xl bg-black ring-1 ring-black/10">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={photoPreview} alt="" className="h-full w-full object-cover" />
+              </div>
+            ) : null}
+            <label className="mt-3 flex flex-col gap-2 text-sm text-black">
               Description
               <textarea value={serviceForm.description} onChange={(e) => setServiceForm((current) => ({ ...current, description: e.target.value }))} rows={3} className="rounded-lg bg-gray-900 px-3 py-2 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
             </label>
@@ -613,11 +642,11 @@ export default function AdminServicesPage() {
               </button>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm text-gray-800 sm:col-span-2">
+              <label className="flex flex-col gap-2 text-sm text-black sm:col-span-2">
                 Nom *
                 <input value={productForm.name} onChange={(e) => setProductForm((current) => ({ ...current, name: e.target.value }))} required className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Catégorie
                 <select value={productForm.category} onChange={(e) => setProductForm((current) => ({ ...current, category: e.target.value }))} className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50">
                   {PRODUCT_CATEGORIES.map((item) => (
@@ -627,12 +656,12 @@ export default function AdminServicesPage() {
                   ))}
                 </select>
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Prix (F CFA) *
                 <input value={productForm.price} onChange={(e) => setProductForm((current) => ({ ...current, price: e.target.value }))} required inputMode="numeric" className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
             </div>
-            <label className="mt-3 flex flex-col gap-2 text-sm text-gray-800">
+            <label className="mt-3 flex flex-col gap-2 text-sm text-black">
               Photo
               <input
                 type="file"
@@ -648,7 +677,7 @@ export default function AdminServicesPage() {
                 <img src={photoPreview} alt="" className="h-full w-full object-cover" />
               </div>
             ) : null}
-            <label className="mt-3 flex flex-col gap-2 text-sm text-gray-800">
+            <label className="mt-3 flex flex-col gap-2 text-sm text-black">
               Description
               <textarea value={productForm.description} onChange={(e) => setProductForm((current) => ({ ...current, description: e.target.value }))} rows={3} className="rounded-lg bg-gray-900 px-3 py-2 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
             </label>
@@ -676,32 +705,32 @@ export default function AdminServicesPage() {
               </button>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
-              <label className="flex flex-col gap-2 text-sm text-gray-800 sm:col-span-2">
+              <label className="flex flex-col gap-2 text-sm text-black sm:col-span-2">
                 Nom *
                 <input value={planForm.name} onChange={(e) => setPlanForm((current) => ({ ...current, name: e.target.value }))} required className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Prix (F CFA) *
                 <input value={planForm.price} onChange={(e) => setPlanForm((current) => ({ ...current, price: e.target.value }))} required inputMode="numeric" className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Visites / mois *
                 <input value={planForm.visits} onChange={(e) => setPlanForm((current) => ({ ...current, visits: e.target.value }))} required inputMode="numeric" className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Réduction boutique (%)
                 <input value={planForm.boutiquePercent} onChange={(e) => setPlanForm((current) => ({ ...current, boutiquePercent: e.target.value }))} inputMode="numeric" className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
-              <label className="flex flex-col gap-2 text-sm text-gray-800">
+              <label className="flex flex-col gap-2 text-sm text-black">
                 Période
                 <input value={planForm.period} onChange={(e) => setPlanForm((current) => ({ ...current, period: e.target.value }))} className="h-11 rounded-lg bg-gray-900 px-3 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
               </label>
             </div>
-            <label className="mt-3 flex items-center gap-3 text-sm text-gray-800">
+            <label className="mt-3 flex items-center gap-3 text-sm text-black">
               <input type="checkbox" checked={planForm.featured} onChange={(e) => setPlanForm((current) => ({ ...current, featured: e.target.checked }))} className="h-4 w-4 accent-[#e0b12c]" />
               Mettre en avant (Le plus choisi)
             </label>
-            <label className="mt-3 flex flex-col gap-2 text-sm text-gray-800">
+            <label className="mt-3 flex flex-col gap-2 text-sm text-black">
               Avantages (un par ligne)
               <textarea value={planForm.perks} onChange={(e) => setPlanForm((current) => ({ ...current, perks: e.target.value }))} rows={5} placeholder={"4 visites coupe + barbe\n15% sur la boutique"} className="rounded-lg bg-gray-900 px-3 py-2 text-black outline-none ring-1 ring-black/10 focus:ring-[#e0b12c]/50" />
             </label>

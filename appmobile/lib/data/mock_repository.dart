@@ -214,6 +214,12 @@ class MockMacNationRepository implements MacNationRepository {
   Future<void> cancelMembership() async {}
 
   @override
+  Future<void> acceptQuoteAtSalon(String bookingId) async {}
+
+  @override
+  Future<void> cancelBooking(String bookingId) async {}
+
+  @override
   Future<OauthConfig> fetchOauthConfig() async => const OauthConfig();
 
   @override

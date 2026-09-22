@@ -1,6 +1,6 @@
 import { readFile, unlink } from 'fs/promises';
 import { join } from 'path';
-import { BadRequestException, Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import {
@@ -15,13 +15,10 @@ import {
   findArticle,
   findJob,
   JOBS,
-  PLANS,
-  PRODUCTS,
   resolveProductId,
   resolveServiceId,
   REVIEWS,
   SALON,
-  SERVICES,
 } from './catalog.data';
 
 const DEFAULT_IMAGE = '/photos/people/people-cut.jpg';
@@ -101,19 +98,11 @@ function asPerkList(value: unknown): string[] {
 }
 
 @Injectable()
-export class CatalogService implements OnModuleInit {
-  private readonly logger = new Logger(CatalogService.name);
-
+export class CatalogService {
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
   ) {}
-
-  async onModuleInit() {
-    await this.seedServices();
-    await this.seedProducts();
-    await this.seedPlans();
-  }
 
   private siteUrl() {
     return (
@@ -125,64 +114,6 @@ export class CatalogService implements OnModuleInit {
     const value = path || DEFAULT_IMAGE;
     if (value.startsWith('http')) return value;
     return `${this.siteUrl()}${value.startsWith('/') ? value : `/${value}`}`;
-  }
-
-  private async seedServices() {
-    const count = await this.prisma.service.count();
-    if (count > 0) return;
-    await this.prisma.service.createMany({
-      data: SERVICES.map((item, index) => ({
-        slug: item.id,
-        name: item.name,
-        duration: item.duration,
-        description: item.description,
-        category: item.category,
-        image: item.image,
-        price: item.price,
-        priceLabel: item.priceLabel,
-        sortOrder: index,
-        active: true,
-      })),
-    });
-    this.logger.log(`${SERVICES.length} prestations initiales enregistrées.`);
-  }
-
-  private async seedProducts() {
-    const count = await this.prisma.product.count();
-    if (count > 0) return;
-    await this.prisma.product.createMany({
-      data: PRODUCTS.map((item, index) => ({
-        slug: item.id,
-        name: item.name,
-        description: item.description,
-        category: item.category,
-        image: item.image,
-        price: item.price,
-        sortOrder: index,
-        active: true,
-      })),
-    });
-    this.logger.log(`${PRODUCTS.length} produits initiaux enregistrés.`);
-  }
-
-  private async seedPlans() {
-    const count = await this.prisma.plan.count();
-    if (count > 0) return;
-    await this.prisma.plan.createMany({
-      data: PLANS.map((item, index) => ({
-        slug: item.id,
-        name: item.name,
-        price: item.price,
-        period: item.period,
-        featured: item.featured,
-        perks: item.perks,
-        visits: item.visits,
-        boutiquePercent: item.boutiquePercent,
-        sortOrder: index,
-        active: true,
-      })),
-    });
-    this.logger.log(`${PLANS.length} abonnements initiaux enregistrés.`);
   }
 
   private toPublic(row: {
@@ -331,6 +262,9 @@ export class CatalogService implements OnModuleInit {
         ...(input.active != null ? { active: input.active } : {}),
       },
     });
+    if (input.image && input.image !== current.image) {
+      await this.removeStoredProductPhoto(current.image);
+    }
     return this.toAdmin(row);
   }
 
@@ -431,7 +365,7 @@ export class CatalogService implements OnModuleInit {
 
   async storeProductPhoto(file: UploadedPhoto) {
     if (!file?.buffer?.length) {
-      throw new BadRequestException('Ajoute une photo du produit.');
+      throw new BadRequestException('Ajoute une photo.');
     }
     if (file.size > PRODUCT_PHOTO_MAX_BYTES) {
       throw new BadRequestException('Photo trop lourde. Maximum 5 Mo.');

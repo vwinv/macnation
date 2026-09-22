@@ -36,6 +36,11 @@ export function formatServicePrice(price: number | null | undefined, priceLabel?
   return formatFcfa(price);
 }
 
+export function isQuotedService(price?: number | null, priceLabel?: string | null) {
+  if (price == null) return true;
+  return /sur\s*devis/i.test(priceLabel || "");
+}
+
 export type InvoiceLine = {
   name: string;
   qty: number;

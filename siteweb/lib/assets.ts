@@ -88,4 +88,5 @@ export const salonInfo = {
   city: "Dakar",
   country: "Sénégal",
   hours: "Lun-Sam 10h-21h · Dim 12h-20h",
+  mapsQuery: "MAC NATION Nord Foire, en face du service d'hygiène, Dakar",
 };

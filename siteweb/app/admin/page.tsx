@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { CalendarBlank, CaretLeft, CaretRight, List } from "@phosphor-icons/react";
 import HoursSettingsModal from "@/components/admin/HoursSettingsModal";
 import AgendaBookingCard from "@/components/admin/AgendaBookingCard";
+import AdminQuotePopup from "@/components/admin/AdminQuotePopup";
 import type { Booking, BookingStatus, Invoice } from "@/lib/salon-types";
+import type { InvoiceLine } from "@/lib/money";
 
 const FILTERS = [
   { id: "tous", label: "Tous" },
@@ -59,10 +61,11 @@ export default function AdminPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [paydunyaReady, setPaydunyaReady] = useState(false);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]["id"]>("tous");
-  const [view, setView] = useState<ViewMode>("calendrier");
+  const [view, setView] = useState<ViewMode>("liste");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [quoteBooking, setQuoteBooking] = useState<Booking | null>(null);
   const [hours, setHours] = useState<ScheduleHour[]>([]);
   const [closedDates, setClosedDates] = useState<string[]>([]);
   const [cursor, setCursor] = useState(() => {
@@ -88,9 +91,19 @@ export default function AdminPage() {
       setError(json.error || "Chargement impossible.");
       return;
     }
-    setBookings(json.bookings || []);
+    const nextBookings = json.bookings || [];
+    setBookings(nextBookings);
     setInvoices(json.invoices || []);
     setPaydunyaReady(Boolean(json.paydunyaReady));
+    const upcoming = nextBookings
+      .filter((item) => item.status !== "annule" && item.dateIso)
+      .sort((a, b) => `${a.dateIso}${a.time}`.localeCompare(`${b.dateIso}${b.time}`))[0];
+    if (upcoming?.dateIso) {
+      const [y, m, d] = upcoming.dateIso.split("-").map(Number);
+      const day = new Date(y, (m || 1) - 1, d || 1);
+      setCursor(new Date(day.getFullYear(), day.getMonth(), 1));
+      setSelected(day);
+    }
     if (scheduleRes.ok) {
       const schedule = (await scheduleRes.json()) as { hours?: ScheduleHour[]; closedDates?: { dateIso?: string }[] };
       setHours(schedule.hours || []);
@@ -159,6 +172,26 @@ export default function AdminPage() {
       await load();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Encaissement impossible.");
+    } finally {
+      setBusy("");
+    }
+  }
+
+  async function sendQuote(booking: Booking, items: InvoiceLine[]) {
+    setBusy(`${booking.id}-quote`);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/bookings/${booking.id}/quote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+      const json = (await res.json()) as { booking?: Booking; error?: string };
+      if (!res.ok || !json.booking) throw new Error(json.error || "Devis impossible.");
+      setQuoteBooking(null);
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Devis impossible.");
     } finally {
       setBusy("");
     }
@@ -255,6 +288,10 @@ export default function AdminPage() {
     onOpenInvoice: (item: Booking) => void openInvoice(item),
     onEncaisser: (item: Booking, method: "especes" | "wave" | "orange" | "free") => void encaisser(item, method),
     onPayerMobile: (item: Booking) => void payerMobile(item),
+    onOpenQuote: (item: Booking) => {
+      setError("");
+      setQuoteBooking(item);
+    },
   };
 
   return (
@@ -282,6 +319,19 @@ export default function AdminPage() {
             setSettingsOpen(false);
             void load();
           }}
+        />
+      ) : null}
+      {quoteBooking ? (
+        <AdminQuotePopup
+          booking={quoteBooking}
+          busy={busy === `${quoteBooking.id}-quote`}
+          error={error}
+          onClose={() => {
+            if (busy === `${quoteBooking.id}-quote`) return;
+            setQuoteBooking(null);
+            setError("");
+          }}
+          onSubmit={(items) => void sendQuote(quoteBooking, items)}
         />
       ) : null}
 

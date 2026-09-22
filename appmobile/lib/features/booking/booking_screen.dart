@@ -159,6 +159,7 @@ class _BookingScreenState extends State<BookingScreen> {
     setState(() {
       draft.service = selected;
       draft.time = null;
+      if (selected.isQuoted) draft.paymentTiming = PaymentTiming.atSalon;
     });
     if (draft.date != null) _loadSlots(draft.date!);
   }
@@ -202,6 +203,10 @@ class _BookingScreenState extends State<BookingScreen> {
       return;
     }
 
+    if (draft.service?.isQuoted ?? false) {
+      draft.paymentTiming = PaymentTiming.atSalon;
+    }
+
     if (draft.paymentTiming == PaymentTiming.now) {
       final method = await showPaymentSheet(
         context,
@@ -239,6 +244,7 @@ class _BookingScreenState extends State<BookingScreen> {
           name: name,
           phone: phone,
           email: email,
+          isBooking: true,
         );
         if (paid) {
           appState.resetBooking();
@@ -257,7 +263,7 @@ class _BookingScreenState extends State<BookingScreen> {
                 ? (outcome.loginRequired ? 'Connecte-toi pour confirmer' : 'Rendez-vous confirmé')
                 : 'Paiement non reçu',
             message: paid || !payNow
-                ? '${outcome.appointment?.serviceName ?? serviceName} · ${formatDateLong(outcome.appointment?.date ?? when ?? DateTime.now())} à ${outcome.appointment?.time ?? time}. ${paid ? 'Payé en ligne. ' : 'Paiement au salon. '}${outcome.loginRequired ? (outcome.accountCreated ? 'Ton compte est créé : mot de passe par SMS et email. Ouvre Mon compte pour confirmer.' : 'Ouvre Mon compte pour confirmer ce rendez-vous.') : ''}'
+                ? '${outcome.appointment?.serviceName ?? serviceName} · ${formatDateLong(outcome.appointment?.date ?? when ?? DateTime.now())} à ${outcome.appointment?.time ?? time}. ${paid ? 'Payé en ligne. ' : (draft.service?.isQuoted ?? false) ? 'Tarif sur devis, à confirmer au salon. ' : 'Paiement au salon. '}${outcome.loginRequired ? (outcome.accountCreated ? 'Ton compte est créé : mot de passe par SMS et email. Ouvre Mon compte pour confirmer.' : 'Ouvre Mon compte pour confirmer ce rendez-vous.') : ''}'
                 : 'Le rendez-vous n’a pas été enregistré. Réessaie le paiement.',
             actionLabel: outcome.loginRequired ? 'Ouvrir mon compte' : 'Retour à l’accueil',
             onAction: () => navigator.popUntil((route) => route.isFirst),
@@ -302,30 +308,32 @@ class _BookingScreenState extends State<BookingScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Paiement du rendez-vous', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: _Choice(
-                title: 'Payer maintenant',
-                subtitle: 'Wave · Orange · Free',
-                selected: draft.paymentTiming == PaymentTiming.now,
-                onTap: () => setState(() => draft.paymentTiming = PaymentTiming.now),
+        if (draft.service != null && !draft.service!.isQuoted) ...[
+          const Text('Paiement du rendez-vous', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _Choice(
+                  title: 'Payer maintenant',
+                  subtitle: 'Wave · Orange · Free',
+                  selected: draft.paymentTiming == PaymentTiming.now,
+                  onTap: () => setState(() => draft.paymentTiming = PaymentTiming.now),
+                ),
               ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: _Choice(
-                title: 'Payer au salon',
-                subtitle: 'Espèces ou Mobile Money',
-                selected: draft.paymentTiming == PaymentTiming.atSalon,
-                onTap: () => setState(() => draft.paymentTiming = PaymentTiming.atSalon),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _Choice(
+                  title: 'Payer au salon',
+                  subtitle: 'Espèces ou Mobile Money',
+                  selected: draft.paymentTiming == PaymentTiming.atSalon,
+                  onTap: () => setState(() => draft.paymentTiming = PaymentTiming.atSalon),
+                ),
               ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 18),
+            ],
+          ),
+          const SizedBox(height: 18),
+        ],
         const Text('Lieu', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
         const SizedBox(height: 10),
         Row(
@@ -630,7 +638,9 @@ class _BookingScreenState extends State<BookingScreen> {
             const SizedBox(width: 10),
             Expanded(
               child: GoldButton(
-                label: draft.paymentTiming == PaymentTiming.now
+                label: (draft.service?.isQuoted ?? false)
+                    ? 'Demander le rendez-vous'
+                    : draft.paymentTiming == PaymentTiming.now
                     ? 'Réserver et payer'
                     : 'Confirmer',
                 loading: _submitting,

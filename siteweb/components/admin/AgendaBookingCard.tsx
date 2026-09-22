@@ -32,9 +32,11 @@ type Props = {
   onOpenInvoice: (item: Booking) => void;
   onEncaisser: (item: Booking, method: "especes" | "wave" | "orange" | "free") => void;
   onPayerMobile: (item: Booking) => void;
+  onOpenQuote: (item: Booking) => void;
 };
 
-export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice, onEncaisser, onPayerMobile }: Props) {
+export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice, onEncaisser, onPayerMobile, onOpenQuote }: Props) {
+  const needsQuote = item.paymentStatus !== "paid" && item.status !== "annule" && item.amount <= 0;
   return (
     <li className="rounded-2xl bg-gray-950 p-5 stroke-gradient [--stroke-opacity:0.15]">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -49,7 +51,7 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
             <span className="mx-2 text-gray-600">·</span>
             {item.place === "domicile" ? `Domicile · ${item.address}` : "Salon Nord Foire"}
             <span className="mx-2 text-gray-600">·</span>
-            <span className="text-black">{formatFcfa(item.amount)}</span>
+            <span className="text-black">{item.amount > 0 ? formatFcfa(item.amount) : "Sur devis"}</span>
           </p>
           <p className="mt-2 flex flex-wrap gap-3 text-sm">
             {hasSnPhone(item.phone) ? (
@@ -82,7 +84,15 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
             {STATUS_LABEL[item.status]}
           </span>
           <span className={`text-xs ${item.paymentStatus === "paid" ? "text-emerald-300" : "text-gray-500"}`}>
-            {item.paymentStatus === "paid" ? "Payé" : item.paymentStatus === "pending" ? "Paiement en cours" : "Impayé"}
+            {item.paymentStatus === "paid"
+              ? "Payé"
+              : item.paymentStatus === "pending"
+                ? "Paiement en cours"
+                : item.amount <= 0
+                  ? "Devis à faire"
+                  : item.paymentMethod === "especes"
+                    ? "Devis accepté · salon"
+                    : "Devis envoyé"}
           </span>
         </div>
       </div>
@@ -98,6 +108,15 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
             {item.status !== "termine" && item.status !== "annule" ? (
               <button type="button" onClick={() => onStatus(item.id, "termine")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
                 Prestation faite
+              </button>
+            ) : null}
+            {needsQuote ? (
+              <button
+                type="button"
+                onClick={() => onOpenQuote(item)}
+                className="btn-gold h-9 cursor-pointer rounded-lg px-3 text-sm font-medium"
+              >
+                Faire le devis
               </button>
             ) : null}
             {item.invoiceId ? (
@@ -116,7 +135,7 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
             ) : null}
           </div>
         </div>
-        {item.paymentStatus !== "paid" && item.status !== "annule" ? (
+        {item.paymentStatus !== "paid" && item.status !== "annule" && !needsQuote ? (
           <div>
             <p className="text-xs tracking-[0.16em] text-gray-500">ENCAISSER AU SALON</p>
             <p className="mt-1 text-xs text-gray-500">Le client a déjà payé ici : tu marques juste le moyen.</p>

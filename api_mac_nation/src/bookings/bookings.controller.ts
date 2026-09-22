@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   Post,
   Query,
@@ -37,6 +38,20 @@ export class BookingsController {
   @UseGuards(AuthGuard)
   one(@Param('id') id: string, @CurrentClient() client: Client) {
     return this.bookings.one(id, client);
+  }
+
+  @Post(':id/salon')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  acceptSalon(@Param('id') id: string, @CurrentClient() client: Client) {
+    return this.bookings.acceptQuoteAtSalon(id, client);
+  }
+
+  @Post(':id/cancel')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  cancel(@Param('id') id: string, @CurrentClient() client: Client) {
+    return this.bookings.cancel(id, client);
   }
 
   @Post()

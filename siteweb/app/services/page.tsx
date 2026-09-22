@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import CatalogImage from "@/components/CatalogImage";
+import ReserveLink from "@/components/ReserveLink";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
 import { getCatalogServices } from "@/lib/api";
 import { pageImages } from "@/lib/assets";
-import { formatServicePrice } from "@/lib/money";
+import { formatServicePrice, isQuotedService } from "@/lib/money";
 
 export const metadata: Metadata = {
   title: "Catalogue",
@@ -19,9 +19,14 @@ export default async function ServicesPage() {
   return (
     <main>
       <PageHero
-        title="Catalogue - Coupe, Barbe, Enfants"
+        title={
+          <>
+            Catalogue - Coupe, Barbe,{" "}
+            <span className="!text-[#e0b12c]">Enfants</span>
+          </>
+        }
         image={pageImages.services}
-        overlay="photo"
+        overlay="blur"
       />
       <section className="mx-auto max-w-[1100px] px-6 pb-28 pt-12 sm:pt-16">
         <p className="mx-auto mb-10 max-w-[60ch] text-center text-sm leading-relaxed text-gray-500 sm:mb-14 md:text-base">
@@ -31,7 +36,9 @@ export default async function ServicesPage() {
           <p className="text-sm text-gray-500">Aucune prestation pour le moment.</p>
         ) : (
           <ul className="grid grid-cols-2 gap-2.5 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
-            {services.map((s, i) => (
+            {services.map((s, i) => {
+              const quoted = isQuotedService(s.price, s.priceLabel);
+              return (
               <li key={s.id}>
                 <Reveal delay={i * 0.04}>
                   <article className="flex h-full flex-col overflow-hidden rounded-xl bg-white ring-1 ring-black/10">
@@ -46,19 +53,22 @@ export default async function ServicesPage() {
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-400">{s.description}</p>
                       {s.duration ? <p className="mt-1 text-[11px] text-gray-500">{s.duration}</p> : null}
                       <div className="mt-auto flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
-                        <span className="font-bebas !font-medium text-lg text-black">{formatServicePrice(s.price, s.priceLabel)}</span>
-                        <Link
-                          href={`/rendez-vous?service=${encodeURIComponent(s.id)}`}
+                        <span className={`font-bebas !font-medium text-lg ${quoted ? "text-[#e0b12c]" : "text-black"}`}>
+                          {quoted ? "(Sur devis)" : formatServicePrice(s.price, s.priceLabel)}
+                        </span>
+                        <ReserveLink
+                          serviceId={s.id}
                           className="btn-black inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium"
                         >
                           Réserver
-                        </Link>
+                        </ReserveLink>
                       </div>
                     </div>
                   </article>
                 </Reveal>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </section>

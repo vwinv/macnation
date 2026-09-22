@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { detectDeviceAuth, type SocialProvider } from "@/lib/device-auth";
 
-type Config = { google: string; apple: string; facebook: string; siteUrl: string };
+type Config = {
+  google: string;
+  apple: string;
+  appleRedirect?: string;
+  facebook: string;
+  siteUrl: string;
+};
 
 declare global {
   interface Window {

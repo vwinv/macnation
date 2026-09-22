@@ -311,11 +311,22 @@ class ApiMacNationRepository implements MacNationRepository {
   }
 
   @override
+  Future<void> acceptQuoteAtSalon(String bookingId) async {
+    await _client.post('/bookings/$bookingId/salon', {});
+  }
+
+  @override
+  Future<void> cancelBooking(String bookingId) async {
+    await _client.post('/bookings/$bookingId/cancel', {});
+  }
+
+  @override
   Future<OauthConfig> fetchOauthConfig() async {
     final json = _map(await _client.get('/auth/oauth/config'));
     return OauthConfig(
       google: json['google'] as String? ?? '',
       apple: json['apple'] as String? ?? '',
+      appleEnabled: json['appleEnabled'] == true,
       facebook: json['facebook'] as String? ?? '',
     );
   }
@@ -478,6 +489,8 @@ class ApiMacNationRepository implements MacNationRepository {
           : LocationType.salon,
       total: (json['amount'] as num?)?.toInt() ?? 0,
       paid: json['paymentStatus'] == 'paid',
+      invoiceId: json['invoiceId'] as String?,
+      paymentMethod: json['paymentMethod'] as String?,
     );
   }
 

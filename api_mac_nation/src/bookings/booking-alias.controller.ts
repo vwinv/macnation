@@ -53,6 +53,7 @@ export class BookingAliasController {
         time: created.booking.time,
         place: created.booking.place,
         address: created.booking.address,
+        quoted: created.amount === 0,
       });
     }
 

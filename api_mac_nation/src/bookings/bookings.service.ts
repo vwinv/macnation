@@ -7,6 +7,8 @@ import { CatalogService } from '../catalog/catalog.service';
 import {
   bookingAmount,
   bookingLines,
+  formatFcfa,
+  isQuotedService,
   parsePaymentMethod,
 } from '../common/money';
 import { isSnMobile, normalizePhone } from '../common/phone';
@@ -120,8 +122,11 @@ export class BookingsService {
     const place =
       dto.place === 'domicile' || dto.place === 'home' ? 'domicile' : 'salon';
     const address = (dto.address || '').trim();
-    const payNow = dto.payNow === true;
-    const paymentMethod = parsePaymentMethod(dto.paymentMethod);
+    const quoted = isQuotedService(service?.price, service?.priceLabel);
+    const payNow = !quoted && dto.payNow === true;
+    const paymentMethod = quoted
+      ? undefined
+      : parsePaymentMethod(dto.paymentMethod);
 
     if (!name || !phone || !service || !dateIso || !time) {
       throw new UnprocessableEntityException('Informations incomplètes.');
@@ -136,12 +141,6 @@ export class BookingsService {
         'Adresse requise pour un rendez-vous à domicile.',
       );
     }
-    if (service.price == null) {
-      throw new UnprocessableEntityException(
-        'Cette prestation se confirme au salon (sur devis).',
-      );
-    }
-
     const durationMin = durationMinutes(service.duration);
     const availability = await this.slots(dateIso, service.id);
     if (availability.closed) {
@@ -160,8 +159,12 @@ export class BookingsService {
     const note = `${dateLabel} · ${chosen.label} · ${
       place === 'domicile' ? address || 'Domicile' : 'Salon Nord Foire'
     }`;
-    const amount = bookingAmount(service.price ?? 0, place, service.id);
-    const items = bookingLines(service.name, service.price ?? 0, place, service.id);
+    const amount = quoted
+      ? 0
+      : bookingAmount(service.price ?? 0, place, service.id);
+    const items = quoted
+      ? [{ name: service.name, qty: 1, unitPrice: 0 }]
+      : bookingLines(service.name, service.price ?? 0, place, service.id);
     const loggedIn = Boolean(client);
     const ensured = await this.store.ensurePublicClient({
       clientId: client?.id,
@@ -181,9 +184,30 @@ export class BookingsService {
     const accountCreated = Boolean(ensured.generatedPassword);
 
     if (payNow && amount > 0) {
+      const created = await this.store.createBooking({
+        name,
+        phone,
+        email,
+        serviceId: service.id,
+        serviceName: service.name,
+        dateIso,
+        dateLabel,
+        time,
+        durationMin,
+        place,
+        address,
+        amount,
+        paymentStatus: 'pending',
+        paymentMethod,
+        items,
+        note,
+        clientId,
+        confirmed: false,
+      });
       const pending = await this.store.createPendingPayment({
         amount,
         phone,
+        skipSlotCheck: true,
         payload: {
           kind: 'booking',
           name,
@@ -202,14 +226,16 @@ export class BookingsService {
           note,
           clientId,
           confirmed: loggedIn,
+          bookingId: created.booking.id,
+          invoiceId: created.invoiceId,
         },
       });
       return {
         ok: true as const,
-        booking: null,
-        invoiceId: '',
+        booking: created.booking,
+        invoiceId: created.invoiceId,
         pendingId: pending.id,
-        amount,
+        amount: created.amount,
         paid: false,
         accountCreated,
         loginRequired: !loggedIn,
@@ -234,7 +260,7 @@ export class BookingsService {
       items,
       note,
       clientId,
-      confirmed: loggedIn,
+      confirmed: quoted ? false : loggedIn,
     });
 
     return {
@@ -250,6 +276,24 @@ export class BookingsService {
 
   mine(client: Client) {
     return this.store.bookingsForClient(client);
+  }
+
+  async acceptQuoteAtSalon(id: string, client: Client) {
+    const booking = await this.store.acceptQuoteAtSalon(id, client);
+    await this.notify.quoteSalonChosen({
+      name: booking.name,
+      phone: booking.phone,
+      email: booking.email,
+      serviceName: booking.serviceName,
+      dateLabel: booking.dateLabel,
+      time: booking.time,
+      amountLabel: formatFcfa(booking.amount),
+    });
+    return booking;
+  }
+
+  async cancel(id: string, client: Client) {
+    return this.store.cancelClientBooking(id, client);
   }
 
   async one(id: string, client: Client) {

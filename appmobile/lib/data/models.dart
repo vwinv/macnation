@@ -26,6 +26,11 @@ class ServiceItem {
   final String? priceLabel;
 
   String get displayPrice => priceLabel ?? (price != null ? '$price' : '—');
+
+  bool get isQuoted {
+    if (price == null) return true;
+    return RegExp(r'sur\s*devis', caseSensitive: false).hasMatch(priceLabel ?? '');
+  }
 }
 
 class Product {
@@ -194,6 +199,8 @@ class Appointment {
     required this.location,
     required this.total,
     required this.paid,
+    this.invoiceId,
+    this.paymentMethod,
   });
 
   final String id;
@@ -203,6 +210,12 @@ class Appointment {
   final LocationType location;
   final int total;
   final bool paid;
+  final String? invoiceId;
+  final String? paymentMethod;
+
+  bool get waitingQuote => !paid && total <= 0;
+  bool get quoteReady => !paid && total > 0;
+  bool get salonChosen => quoteReady && paymentMethod == 'especes';
 }
 
 class BookingDraft {
@@ -221,7 +234,7 @@ class BookingDraft {
 
   int get travelFee => location == LocationType.home ? 2000 : 0;
 
-  int get total => servicePrice + travelFee;
+  int get total => (service?.isQuoted ?? false) ? 0 : servicePrice + travelFee;
 
   bool get isComplete =>
       service != null &&

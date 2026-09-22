@@ -5,15 +5,17 @@ class OauthConfig {
   const OauthConfig({
     this.google = '',
     this.apple = '',
+    this.appleEnabled = false,
     this.facebook = '',
   });
 
   final String google;
   final String apple;
+  final bool appleEnabled;
   final String facebook;
 
   bool get googleReady => google.isNotEmpty;
-  bool get appleReady => apple.isNotEmpty;
+  bool get appleReady => appleEnabled || apple.isNotEmpty;
   bool get facebookReady => facebook.isNotEmpty;
 }
 
@@ -125,6 +127,8 @@ abstract class MacNationRepository {
   });
   Future<UserProfile> redeemPoints();
   Future<void> cancelMembership();
+  Future<void> acceptQuoteAtSalon(String bookingId);
+  Future<void> cancelBooking(String bookingId);
   Future<OauthConfig> fetchOauthConfig();
   Future<AccountSnapshot> loginWithOauth({
     required String provider,

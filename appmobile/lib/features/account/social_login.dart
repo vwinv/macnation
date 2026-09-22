@@ -48,11 +48,13 @@ Future<void> startSocialLogin(
     if (kIsWeb || !(Platform.isIOS || Platform.isMacOS)) {
       throw const ApiException('Apple est disponible sur iPhone et Mac.');
     }
+    final nonce = DateTime.now().microsecondsSinceEpoch.toString();
     final credential = await SignInWithApple.getAppleIDCredential(
       scopes: [
         AppleIDAuthorizationScopes.email,
         AppleIDAuthorizationScopes.fullName,
       ],
+      nonce: nonce,
     );
     final token = credential.identityToken;
     if (token == null || token.isEmpty) {
@@ -65,6 +67,7 @@ Future<void> startSocialLogin(
     await state.loginWithOauth(
       provider: 'apple',
       credential: token,
+      nonce: nonce,
       name: name,
     );
   }

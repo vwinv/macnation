@@ -3,7 +3,6 @@ import {
   Injectable,
   Logger,
   NotFoundException,
-  OnModuleInit,
   UnprocessableEntityException,
 } from '@nestjs/common';
 import { randomUUID } from 'crypto';
@@ -32,7 +31,7 @@ import {
   type PaymentMethod,
 } from '../common/money';
 import { generatePassword, hashPassword } from '../common/password';
-import { normalizePhone } from '../common/phone';
+import { isSnMobile, normalizePhone } from '../common/phone';
 import {
   careerFolder,
   configureCloudinary,
@@ -71,7 +70,9 @@ import type {
   UploadedDocument,
 } from './store.types';
 
-type BookingWithInvoice = BookingRow & { invoice?: { id: string } | null };
+type BookingWithInvoice = BookingRow & {
+  invoice?: { id: string; note?: string | null } | null;
+};
 
 const PENDING_TTL_MS = 45 * 60 * 1000;
 
@@ -125,18 +126,13 @@ function applicationsDir() {
 }
 
 @Injectable()
-export class StoreService implements OnModuleInit {
+export class StoreService {
   private readonly logger = new Logger(StoreService.name);
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {}
-
-  async onModuleInit() {
-    await this.seedDemo();
-    await this.seedHours();
-  }
 
   publicClient(client: Client): PublicClient {
     const providers: OauthProvider[] = [];
@@ -243,14 +239,7 @@ export class StoreService implements OnModuleInit {
     );
   }
 
-  private async seedHours() {
-    const count = await this.prisma.openingHour.count();
-    if (count > 0) return;
-    await this.prisma.openingHour.createMany({ data: DEFAULT_OPENING_HOURS });
-  }
-
   async getSchedule() {
-    await this.seedHours();
     const [hours, closedDates] = await Promise.all([
       this.prisma.openingHour.findMany(),
       this.prisma.closedDate.findMany({ orderBy: { dateIso: 'asc' } }),
@@ -401,7 +390,7 @@ export class StoreService implements OnModuleInit {
     address: string;
     amount: number;
     paymentStatus: 'unpaid' | 'pending';
-    paymentMethod: PaymentMethod;
+    paymentMethod?: PaymentMethod;
     items: InvoiceLine[];
     note: string;
     clientId?: string;
@@ -450,7 +439,7 @@ export class StoreService implements OnModuleInit {
         email: input.email,
       });
       const clientId = ensured.id;
-      const number = await this.nextInvoiceNumber(tx);
+      const makeInvoice = input.amount > 0;
       const booking = await tx.booking.create({
         data: {
           name: input.name,
@@ -466,23 +455,27 @@ export class StoreService implements OnModuleInit {
           address: input.address,
           amount: input.amount,
           paymentStatus: input.paymentStatus,
-          paymentMethod: input.paymentMethod,
+          ...(input.paymentMethod ? { paymentMethod: input.paymentMethod } : {}),
           status: input.confirmed ? 'confirme' : 'nouveau',
           clientId: clientId || undefined,
-          invoice: {
-            create: {
-              number,
-              clientName: input.name,
-              clientPhone: input.phone,
-              clientEmail: input.email,
-              items: input.items,
-              amount: invoiceTotal(input.items),
-              note: input.note,
-              kind: 'rdv',
-              clientId: clientId || undefined,
-              paymentMethod: input.paymentMethod,
-            },
-          },
+          ...(makeInvoice
+            ? {
+                invoice: {
+                  create: {
+                    number: await this.nextInvoiceNumber(tx),
+                    clientName: input.name,
+                    clientPhone: input.phone,
+                    clientEmail: input.email,
+                    items: input.items,
+                    amount: invoiceTotal(input.items),
+                    note: input.note,
+                    kind: 'rdv',
+                    clientId: clientId || undefined,
+                    paymentMethod: input.paymentMethod,
+                  },
+                },
+              }
+            : {}),
         },
         include: { invoice: true },
       });
@@ -556,8 +549,9 @@ export class StoreService implements OnModuleInit {
     payload: PendingPayload;
     amount: number;
     phone: string;
+    skipSlotCheck?: boolean;
   }) {
-    if (input.payload.kind === 'booking') {
+    if (input.payload.kind === 'booking' && !input.skipSlotCheck) {
       const taken = await this.slotTaken(
         input.payload.dateIso,
         input.payload.time,
@@ -630,41 +624,51 @@ export class StoreService implements OnModuleInit {
 
     const payload = pending.payload;
     if (payload.kind === 'booking') {
-      const created = await this.createBooking({
-        name: payload.name,
-        phone: payload.phone,
-        email: payload.email,
-        serviceId: payload.serviceId,
-        serviceName: payload.serviceName,
-        dateIso: payload.dateIso,
-        dateLabel: payload.dateLabel,
-        time: payload.time,
-        durationMin: payload.durationMin || DEFAULT_DURATION_MIN,
-        place: payload.place,
-        address: payload.address,
-        amount: payload.amount,
-        paymentStatus: 'pending',
-        paymentMethod: opts.method,
-        items: payload.items,
-        note: payload.note,
-        clientId: payload.clientId,
-        confirmed: payload.confirmed === true,
-        ignoreHolds: true,
-      });
+      let invoiceId = payload.invoiceId || '';
+      let generatedPassword: string | undefined;
+      if (invoiceId) {
+        const existing = await this.getInvoice(invoiceId);
+        if (!existing) invoiceId = '';
+      }
+      if (!invoiceId) {
+        const created = await this.createBooking({
+          name: payload.name,
+          phone: payload.phone,
+          email: payload.email,
+          serviceId: payload.serviceId,
+          serviceName: payload.serviceName,
+          dateIso: payload.dateIso,
+          dateLabel: payload.dateLabel,
+          time: payload.time,
+          durationMin: payload.durationMin || DEFAULT_DURATION_MIN,
+          place: payload.place,
+          address: payload.address,
+          amount: payload.amount,
+          paymentStatus: 'pending',
+          paymentMethod: opts.method,
+          items: payload.items,
+          note: payload.note,
+          clientId: payload.clientId,
+          confirmed: true,
+          ignoreHolds: true,
+        });
+        invoiceId = created.invoiceId;
+        generatedPassword = created.generatedPassword;
+      }
       const settled = await this.markInvoicePaid({
-        invoiceId: created.invoiceId,
+        invoiceId,
         paydunyaToken: opts.token,
         method: opts.method,
       });
       if (!settled) return null;
       await this.prisma.pendingPayment.update({
         where: { id: pending.id },
-        data: { status: 'paid', invoiceId: created.invoiceId },
+        data: { status: 'paid', invoiceId },
       });
       return {
         ...settled,
-        pending: { ...pending, status: 'paid', invoiceId: created.invoiceId },
-        generatedPassword: created.generatedPassword,
+        pending: { ...pending, status: 'paid', invoiceId },
+        generatedPassword,
       };
     }
 
@@ -697,9 +701,13 @@ export class StoreService implements OnModuleInit {
   }
 
   async bookingsForClient(client: Client) {
+    const phone = isSnMobile(client.phone) ? normalizePhone(client.phone) : '';
     const rows = await this.prisma.booking.findMany({
       where: {
-        OR: [{ clientId: client.id }, { phone: client.phone }],
+        OR: [
+          { clientId: client.id },
+          ...(phone ? [{ phone }] : []),
+        ],
       },
       orderBy: { createdAt: 'desc' },
       include: { invoice: true },
@@ -708,9 +716,13 @@ export class StoreService implements OnModuleInit {
   }
 
   async invoicesForClient(client: Client) {
+    const phone = isSnMobile(client.phone) ? normalizePhone(client.phone) : '';
     const rows = await this.prisma.invoice.findMany({
       where: {
-        OR: [{ clientId: client.id }, { clientPhone: client.phone }],
+        OR: [
+          { clientId: client.id },
+          ...(phone ? [{ clientPhone: phone }] : []),
+        ],
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -985,7 +997,7 @@ export class StoreService implements OnModuleInit {
       if (row.bookingId) {
         await tx.booking.update({
           where: { id: row.bookingId },
-          data: { paymentStatus: 'paid' },
+          data: { paymentStatus: 'paid', status: 'confirme' },
         });
       }
 
@@ -1036,6 +1048,7 @@ export class StoreService implements OnModuleInit {
       });
       if (!booking) return null;
       if (booking.invoice) return this.toInvoice(booking.invoice);
+      if (booking.amount <= 0) return null;
 
       const clientId =
         booking.clientId ||
@@ -1171,6 +1184,143 @@ export class StoreService implements OnModuleInit {
       }
       return this.toInvoice(row);
     });
+  }
+
+  async sendBookingQuote(
+    bookingId: string,
+    input: { items?: InvoiceLine[]; amount?: number },
+  ) {
+    return this.prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.findUnique({
+        where: { id: bookingId },
+        include: { invoice: true },
+      });
+      if (!booking) throw new NotFoundException('Rendez-vous introuvable.');
+      if (booking.status === 'annule') {
+        throw new UnprocessableEntityException('Ce rendez-vous est annulé.');
+      }
+      if (booking.paymentStatus === 'paid') {
+        throw new UnprocessableEntityException('Ce rendez-vous est déjà payé.');
+      }
+      let items = asInvoiceLines(input.items);
+      if (!items.length) {
+        const value = Math.round(Number(input.amount));
+        if (!Number.isFinite(value) || value <= 0) {
+          throw new UnprocessableEntityException('Indique un montant de devis.');
+        }
+        items = [{ name: booking.serviceName, qty: 1, unitPrice: value }];
+      }
+      const amount = invoiceTotal(items);
+      if (amount <= 0) {
+        throw new UnprocessableEntityException('Indique un montant de devis.');
+      }
+      const quoteNote = `${booking.dateLabel} · ${booking.time} · devis`;
+      const invoice = booking.invoice
+        ? await tx.invoice.update({
+            where: { id: booking.invoice.id },
+            data: { items, amount, status: 'envoyee', note: quoteNote },
+          })
+        : await tx.invoice.create({
+            data: {
+              number: await this.nextInvoiceNumber(tx),
+              bookingId: booking.id,
+              clientName: booking.name,
+              clientPhone: booking.phone,
+              clientEmail: booking.email,
+              items,
+              amount,
+              status: 'envoyee',
+              note: quoteNote,
+              kind: 'rdv',
+              clientId: booking.clientId || undefined,
+            },
+          });
+      const row = await tx.booking.update({
+        where: { id: booking.id },
+        data: {
+          amount,
+          status:
+            booking.status === 'annule' || booking.status === 'termine'
+              ? booking.status
+              : 'nouveau',
+          paymentMethod: null,
+        },
+        include: { invoice: true },
+      });
+      return { booking: this.toBooking(row), invoice: this.toInvoice(invoice) };
+    });
+  }
+
+  async acceptQuoteAtSalon(bookingId: string, client: Client) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { invoice: true },
+    });
+    if (!booking) throw new NotFoundException('Rendez-vous introuvable.');
+    const owned =
+      booking.clientId === client.id ||
+      (client.phone && booking.phone === client.phone);
+    if (!owned) throw new NotFoundException('Rendez-vous introuvable.');
+    if (booking.status === 'annule') {
+      throw new UnprocessableEntityException('Ce rendez-vous est annulé.');
+    }
+    if (booking.paymentStatus === 'paid') {
+      throw new UnprocessableEntityException('Ce rendez-vous est déjà payé.');
+    }
+    if (booking.amount <= 0) {
+      throw new UnprocessableEntityException(
+        'Le devis n’est pas encore disponible.',
+      );
+    }
+    const row = await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { paymentMethod: 'especes', status: 'confirme' },
+      include: { invoice: true },
+    });
+    if (row.invoice) {
+      await this.prisma.invoice.update({
+        where: { id: row.invoice.id },
+        data: { paymentMethod: 'especes' },
+      });
+    }
+    return this.toBooking(row);
+  }
+
+  async cancelClientBooking(bookingId: string, client: Client) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: { invoice: true },
+    });
+    if (!booking) throw new NotFoundException('Rendez-vous introuvable.');
+    const owned =
+      booking.clientId === client.id ||
+      (client.phone && booking.phone === client.phone);
+    if (!owned) throw new NotFoundException('Rendez-vous introuvable.');
+    if (booking.status === 'annule') {
+      throw new UnprocessableEntityException('Ce rendez-vous est déjà annulé.');
+    }
+    if (booking.status === 'termine') {
+      throw new UnprocessableEntityException(
+        'Ce rendez-vous est déjà terminé.',
+      );
+    }
+    if (booking.paymentStatus === 'paid') {
+      throw new UnprocessableEntityException(
+        'Un rendez-vous payé ne peut pas être annulé ici.',
+      );
+    }
+    const row = await this.prisma.booking.update({
+      where: { id: booking.id },
+      data: { status: 'annule' },
+      include: { invoice: true },
+    });
+    if (row.invoice && row.invoice.status !== 'payee') {
+      await this.prisma.invoice.update({
+        where: { id: row.invoice.id },
+        data: { status: 'annulee' },
+      });
+    }
+    return this.toBooking(row);
   }
 
   async addExpense(input: {
@@ -1543,13 +1693,14 @@ export class StoreService implements OnModuleInit {
     clientId: string,
     phone: string,
   ) {
-    if (!phone || phone.startsWith(PENDING_PHONE_PREFIX)) return;
+    if (!isSnMobile(phone)) return;
+    const normalized = normalizePhone(phone);
     await tx.booking.updateMany({
-      where: { clientId: null, phone },
+      where: { clientId: null, phone: normalized },
       data: { clientId },
     });
     await tx.invoice.updateMany({
-      where: { clientId: null, clientPhone: phone },
+      where: { clientId: null, clientPhone: normalized },
       data: { clientId },
     });
   }
@@ -1623,77 +1774,6 @@ export class StoreService implements OnModuleInit {
       update: { value: { increment: 1 } },
     });
     return `MN-${String(counter.value).padStart(4, '0')}`;
-  }
-
-  private async seedDemo() {
-    const phone = '+221771234567';
-    const existing = await this.prisma.client.findUnique({ where: { phone } });
-    if (existing) return;
-
-    const startedAt = new Date();
-    const next = new Date(startedAt);
-    next.setDate(startedAt.getDate() + 3);
-    const dateIso = next.toISOString().slice(0, 10);
-
-    await this.prisma.$transaction(async (tx) => {
-      const client = await tx.client.create({
-        data: {
-          id: 'client-demo-cheikh',
-          name: 'Cheikh Diop',
-          phone,
-          email: 'cheikh@macnation.sn',
-          passwordHash: hashPassword('macnation1'),
-          points: 24,
-        },
-      });
-      await tx.membership.create({
-        data: {
-          clientId: client.id,
-          planId: 'signature',
-          planName: 'Signature',
-          startedAt,
-          expiresAt: new Date(addDays(startedAt.toISOString(), 30)),
-          visitsTotal: 4,
-          visitsUsed: 1,
-          boutiquePercent: 15,
-        },
-      });
-      const number = await this.nextInvoiceNumber(tx);
-      await tx.booking.create({
-        data: {
-          name: client.name,
-          phone: client.phone,
-          email: client.email,
-          serviceId: 'combo',
-          serviceName: 'Coupe + Barbe',
-          dateIso,
-          dateLabel: dateIso,
-          time: '18:00',
-          place: 'salon',
-          status: 'confirme',
-          amount: 7000,
-          paymentStatus: 'paid',
-          paymentMethod: 'wave',
-          clientId: client.id,
-          invoice: {
-            create: {
-              number,
-              clientName: client.name,
-              clientPhone: client.phone,
-              clientEmail: client.email,
-              items: [{ name: 'Coupe + Barbe', qty: 1, unitPrice: 7000 }],
-              amount: 7000,
-              status: 'payee',
-              paidAt: startedAt,
-              note: `${dateIso} · 18:00 · Salon Nord Foire`,
-              kind: 'rdv',
-              clientId: client.id,
-              paymentMethod: 'wave',
-            },
-          },
-        },
-      });
-    });
   }
 
   private toClient(row: ClientRow): Client {
@@ -1776,6 +1856,9 @@ export class StoreService implements OnModuleInit {
         items,
         note: String(row.note || ''),
         clientId: typeof row.clientId === 'string' ? row.clientId : undefined,
+        confirmed: row.confirmed === true,
+        bookingId: typeof row.bookingId === 'string' ? row.bookingId : undefined,
+        invoiceId: typeof row.invoiceId === 'string' ? row.invoiceId : undefined,
       };
     }
     return {
@@ -1842,10 +1925,14 @@ export class StoreService implements OnModuleInit {
       paymentMethod: row.paymentMethod ?? undefined,
       invoiceId: row.invoice?.id,
       clientId: row.clientId ?? undefined,
+      quoted:
+        row.amount <= 0 ||
+        /devis/i.test(row.invoice?.note || ''),
     };
   }
 
   private toInvoice(row: InvoiceRow): Invoice {
+    const items = asInvoiceLines(row.items);
     return {
       id: row.id,
       number: row.number,
@@ -1855,8 +1942,8 @@ export class StoreService implements OnModuleInit {
       clientName: row.clientName,
       clientPhone: row.clientPhone,
       clientEmail: row.clientEmail,
-      items: (Array.isArray(row.items) ? row.items : []) as InvoiceLine[],
-      amount: row.amount,
+      items,
+      amount: items.length ? invoiceTotal(items) : row.amount,
       status: row.status,
       paymentMethod: row.paymentMethod ?? undefined,
       paydunyaToken: row.paydunyaToken ?? undefined,

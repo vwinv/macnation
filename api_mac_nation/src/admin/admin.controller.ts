@@ -24,11 +24,13 @@ import { CatalogService, type UploadedPhoto } from '../catalog/catalog.service';
 import { AdminGuard } from '../auth/admin.guard';
 import {
   asInvoiceLines,
+  formatFcfa,
   isExpenseCategory,
   isPaymentMethod,
   todayIso,
   type ExpenseCategory,
 } from '../common/money';
+import { NotifyService } from '../notify/notify.service';
 import { paytechException } from '../paytech/paytech.errors';
 import { PaytechService } from '../paytech/paytech.service';
 import { StoreService } from '../store/store.service';
@@ -173,6 +175,7 @@ export class AdminController {
     private readonly store: StoreService,
     private readonly paytech: PaytechService,
     private readonly catalog: CatalogService,
+    private readonly notify: NotifyService,
   ) {}
 
   @Get('salon')
@@ -188,6 +191,31 @@ export class AdminController {
   @Get('bookings')
   async bookings() {
     return { bookings: await this.store.listBookings() };
+  }
+
+  @Post('bookings/:id/quote')
+  @HttpCode(200)
+  async sendBookingQuote(@Param('id') id: string, @Body() body: unknown) {
+    const payload = (body || {}) as { amount?: unknown; items?: unknown };
+    const raw = payload.amount;
+    const amount =
+      typeof raw === 'number' || (typeof raw === 'string' && raw.trim())
+        ? Number(raw)
+        : undefined;
+    const result = await this.store.sendBookingQuote(id, {
+      items: asInvoiceLines(payload.items),
+      amount,
+    });
+    await this.notify.quoteReady({
+      name: result.booking.name,
+      phone: result.booking.phone,
+      email: result.booking.email,
+      serviceName: result.booking.serviceName,
+      dateLabel: result.booking.dateLabel,
+      time: result.booking.time,
+      amountLabel: formatFcfa(result.booking.amount),
+    });
+    return result;
   }
 
   @Patch('bookings/:id')
@@ -487,16 +515,32 @@ export class AdminController {
 
   @Post('services')
   @HttpCode(200)
-  async createService(@Body() body: unknown) {
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  async createService(
+    @Body() body: unknown,
+    @UploadedFile() photo?: UploadedPhoto,
+  ) {
     const input = parseServiceBody(body);
     if (!input.name) throw new BadRequestException('Le nom est obligatoire.');
+    if (photo) {
+      input.image = await this.catalog.storeProductPhoto(photo);
+    }
     const service = await this.catalog.createService(input);
     return { service };
   }
 
   @Patch('services/:id')
-  async updateService(@Param('id') id: string, @Body() body: unknown) {
-    const service = await this.catalog.updateService(id, parseServiceBody(body));
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  async updateService(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @UploadedFile() photo?: UploadedPhoto,
+  ) {
+    const input = parseServiceBody(body);
+    if (photo) {
+      input.image = await this.catalog.storeProductPhoto(photo);
+    }
+    const service = await this.catalog.updateService(id, input);
     if (!service) throw new NotFoundException('Prestation introuvable.');
     return { service };
   }

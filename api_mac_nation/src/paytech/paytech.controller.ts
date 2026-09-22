@@ -52,12 +52,7 @@ export class PaytechController {
     const pendingId = text(pending);
     if (pendingId) {
       try {
-        const found = await this.paytech.refreshPending(pendingId);
-        return {
-          status: found?.status || 'pending',
-          paid: found?.status === 'payee',
-          invoiceId: found?.id,
-        };
+        return await this.paytech.refreshPending(pendingId);
       } catch (error) {
         throw paytechException(error, 'Paiement introuvable.');
       }
@@ -65,8 +60,7 @@ export class PaytechController {
     const invoiceId = text(invoice);
     if (!invoiceId) throw new BadRequestException('Facture manquante.');
     try {
-      const found = await this.paytech.refreshInvoice(invoiceId);
-      return { status: found.status, paid: found.status === 'payee' };
+      return await this.paytech.refreshInvoice(invoiceId);
     } catch (error) {
       throw paytechException(error, 'Facture introuvable.');
     }

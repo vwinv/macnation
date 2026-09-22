@@ -33,6 +33,7 @@ export type Booking = {
   paymentMethod?: PaymentMethod;
   invoiceId?: string;
   clientId?: string;
+  quoted?: boolean;
 };
 
 export type Invoice = {
@@ -183,6 +184,8 @@ export type PendingBookingPayload = {
   note: string;
   clientId?: string;
   confirmed?: boolean;
+  bookingId?: string;
+  invoiceId?: string;
 };
 
 export type PendingCheckoutPayload = {
