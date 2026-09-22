@@ -1,0 +1,322 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum BookingStatus {
+  nouveau
+  confirme
+  termine
+  annule
+}
+
+enum PaymentStatus {
+  unpaid
+  pending
+  paid
+  refunded
+}
+
+enum InvoiceStatus {
+  brouillon
+  envoyee
+  payee
+  annulee
+}
+
+enum InvoiceKind {
+  rdv
+  boutique
+  abonnement
+  caisse
+}
+
+enum Place {
+  salon
+  domicile
+}
+
+enum PaymentMethod {
+  especes
+  wave
+  orange
+  free
+  paydunya
+  autre
+}
+
+enum MembershipStatus {
+  actif
+  expire
+  annule
+}
+
+enum LoyaltyKind {
+  earn
+  redeem
+  adjust
+}
+
+enum ExpenseCategory {
+  loyer
+  produits
+  salaires
+  transport
+  divers
+}
+
+enum ApplicationStatus {
+  nouvelle
+  vue
+  retenue
+  refusee
+}
+
+enum PaymentRecordStatus {
+  pending
+  completed
+  failed
+}
+
+enum PendingPaymentStatus {
+  pending
+  paid
+  expired
+}
+
+model Client {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  name       String
+  phone      String   @unique
+  email      String   @default("")
+  passwordHash String @default("")
+  points     Int      @default(0)
+  creditFcfa Int      @default(0)
+  googleId   String?
+  appleId    String?
+  facebookId String?
+
+  bookings    Booking[]
+  invoices    Invoice[]
+  loyalty     LoyaltyEvent[]
+  memberships Membership[]
+}
+
+model Booking {
+  id            String         @id @default(uuid())
+  createdAt     DateTime       @default(now())
+  name          String
+  phone         String
+  email         String         @default("")
+  serviceId     String
+  serviceName   String
+  dateIso       String
+  dateLabel     String
+  time          String
+  durationMin   Int            @default(30)
+  place         Place
+  address       String         @default("")
+  status        BookingStatus  @default(nouveau)
+  amount        Int
+  paymentStatus PaymentStatus  @default(unpaid)
+  paymentMethod PaymentMethod?
+  invoice       Invoice?
+  client        Client?        @relation(fields: [clientId], references: [id])
+  clientId      String?
+
+  @@index([dateIso, time])
+  @@index([phone])
+}
+
+model Invoice {
+  id            String         @id @default(uuid())
+  number        String         @unique
+  createdAt     DateTime       @default(now())
+  paidAt        DateTime?
+  booking       Booking?       @relation(fields: [bookingId], references: [id])
+  bookingId     String?        @unique
+  clientName    String
+  clientPhone   String
+  clientEmail   String         @default("")
+  items         Json
+  amount        Int
+  status        InvoiceStatus  @default(envoyee)
+  paymentMethod PaymentMethod?
+  note          String?
+  kind          InvoiceKind    @default(caisse)
+  client        Client?        @relation(fields: [clientId], references: [id])
+  clientId      String?
+  planId        String?
+  paydunyaToken String?
+  paydunyaUrl   String?
+  membership    Membership?
+  payments      Payment[]
+}
+
+model InvoiceCounter {
+  id    String @id @default("default")
+  value Int    @default(0)
+}
+
+model LoyaltyEvent {
+  id         String      @id @default(uuid())
+  createdAt  DateTime    @default(now())
+  client     Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId   String
+  kind       LoyaltyKind
+  points     Int
+  creditFcfa Int
+  label      String
+  invoiceId  String?
+
+  @@index([clientId])
+}
+
+model Membership {
+  id              String           @id @default(uuid())
+  createdAt       DateTime         @default(now())
+  client          Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId        String
+  planId          String
+  planName        String
+  startedAt       DateTime
+  expiresAt       DateTime
+  visitsTotal     Int
+  visitsUsed      Int              @default(0)
+  boutiquePercent Int
+  status          MembershipStatus @default(actif)
+  invoice         Invoice?         @relation(fields: [invoiceId], references: [id])
+  invoiceId       String?          @unique
+
+  @@index([clientId, status])
+}
+
+model Payment {
+  id            String              @id @default(uuid())
+  createdAt     DateTime            @default(now())
+  invoice       Invoice?            @relation(fields: [invoiceId], references: [id])
+  invoiceId     String?
+  bookingId     String?
+  amount        Int
+  method        PaymentMethod
+  status        PaymentRecordStatus @default(completed)
+  note          String?
+  paydunyaToken String?
+}
+
+model PendingPayment {
+  id           String               @id @default(uuid())
+  createdAt    DateTime             @default(now())
+  expiresAt    DateTime
+  kind         String
+  amount       Int
+  payload      Json
+  paytechRef   String               @unique
+  paytechToken String?
+  paytechUrl   String?
+  invoiceId    String?
+  status       PendingPaymentStatus @default(pending)
+  phone        String
+
+  @@index([paytechToken])
+  @@index([status, expiresAt])
+  @@index([phone])
+}
+
+model Expense {
+  id        String          @id @default(uuid())
+  createdAt DateTime        @default(now())
+  dateIso   String
+  category  ExpenseCategory
+  amount    Int
+  note      String          @default("")
+}
+
+model Application {
+  id         String            @id @default(uuid())
+  createdAt  DateTime          @default(now())
+  jobId      String
+  jobTitle   String
+  name       String
+  phone      String
+  email      String
+  letter     String            @default("")
+  cvName     String
+  cvPath     String
+  letterName String?
+  letterPath String?
+  status     ApplicationStatus @default(nouvelle)
+}
+
+model Service {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  slug        String   @unique
+  name        String
+  duration    String   @default("30 min")
+  description String   @default("")
+  category    String   @default("Signature")
+  image       String   @default("/photos/people/people-cut.jpg")
+  price       Int?
+  priceLabel  String?
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  @@index([active, sortOrder])
+}
+
+model Product {
+  id          String   @id @default(uuid())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  slug        String   @unique
+  name        String
+  description String   @default("")
+  category    String   @default("Coiffage")
+  image       String   @default("/images/product-pomade.png")
+  price       Int
+  active      Boolean  @default(true)
+  sortOrder   Int      @default(0)
+
+  @@index([active, sortOrder])
+}
+
+model Plan {
+  id              String   @id @default(uuid())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  slug            String   @unique
+  name            String
+  price           Int
+  period          String   @default("par mois")
+  featured        Boolean  @default(false)
+  perks           Json
+  visits          Int      @default(4)
+  boutiquePercent Int      @default(0)
+  active          Boolean  @default(true)
+  sortOrder       Int      @default(0)
+
+  @@index([active, sortOrder])
+}
+
+model OpeningHour {
+  weekday    Int     @id
+  closed     Boolean @default(false)
+  openTime   String  @default("10:00")
+  closeTime  String  @default("21:00")
+  pauseStart String?
+  pauseEnd   String?
+}
+
+model ClosedDate {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  dateIso   String   @unique
+  note      String   @default("")
+}

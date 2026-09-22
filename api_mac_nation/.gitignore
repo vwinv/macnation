@@ -1,0 +1,28 @@
+# compiled output
+/dist
+/node_modules
+/build
+
+# logs
+logs
+*.log
+npm-debug.log*
+
+# env
+.env
+.env.local
+.env.*.local
+
+# tests
+/coverage
+
+# local store
+/data/store.json
+
+# fichiers de candidatures
+/uploads
+
+# OS / IDE
+.DS_Store
+.idea
+.vscode

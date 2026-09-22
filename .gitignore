@@ -1,0 +1,124 @@
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Dependencies (racine + 3 dossiers)
+node_modules/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Env / secrets (on garde les .env.example)
+.env
+.env.*
+!.env.example
+
+# Tests / coverage
+coverage/
+
+# TypeScript
+*.tsbuildinfo
+
+# --- api_mac_nation (NestJS) ---
+api_mac_nation/dist/
+api_mac_nation/build/
+api_mac_nation/uploads/
+api_mac_nation/data/store.json
+
+# --- mac-nation (Next.js) ---
+mac-nation/.next/
+mac-nation/out/
+mac-nation/dist/
+mac-nation/.vercel/
+mac-nation/mac nation/
+
+# --- appmobile (Flutter) ---
+appmobile/.dart_tool/
+appmobile/.flutter-plugins-dependencies
+appmobile/.pub-cache/
+appmobile/.pub/
+appmobile/build/
+appmobile/.build/
+appmobile/.buildlog/
+appmobile/.atom/
+appmobile/.history
+appmobile/.svn/
+appmobile/.swiftpm/
+appmobile/migrate_working_dir/
+appmobile/*.iml
+appmobile/*.ipr
+appmobile/*.iws
+appmobile/*.class
+appmobile/*.pyc
+appmobile/app.*.symbols
+appmobile/app.*.map.json
+appmobile/android/app/debug/
+appmobile/android/app/profile/
+appmobile/android/app/release/
+appmobile/**/doc/api/
+appmobile/**/ios/Flutter/.last_build_id
+
+# Flutter Android
+appmobile/android/.gradle/
+appmobile/android/captures/
+appmobile/android/local.properties
+appmobile/android/.cxx/
+appmobile/android/key.properties
+appmobile/**/*.keystore
+appmobile/**/*.jks
+
+# Flutter iOS
+appmobile/ios/**/dgph
+appmobile/ios/*.mode1v3
+appmobile/ios/*.mode2v3
+appmobile/ios/*.moved-aside
+appmobile/ios/*.pbxuser
+appmobile/ios/*.perspectivev3
+appmobile/ios/**/*sync/
+appmobile/ios/.sconsign.dblite
+appmobile/ios/.tags*
+appmobile/ios/**/.vagrant/
+appmobile/ios/**/DerivedData/
+appmobile/ios/**/Pods/
+appmobile/ios/**/.symlinks/
+appmobile/ios/profile
+appmobile/ios/xcuserdata
+appmobile/ios/**/.generated/
+appmobile/ios/Flutter/App.framework
+appmobile/ios/Flutter/Flutter.framework
+appmobile/ios/Flutter/Flutter.podspec
+appmobile/ios/Flutter/Generated.xcconfig
+appmobile/ios/Flutter/ephemeral/
+appmobile/ios/Flutter/app.flx
+appmobile/ios/Flutter/app.zip
+appmobile/ios/Flutter/flutter_assets/
+appmobile/ios/Flutter/flutter_export_environment.sh
+appmobile/ios/ServiceDefinitions.json
+appmobile/ios/Runner/GeneratedPluginRegistrant.*
+
+# Flutter macOS
+appmobile/macos/**/Flutter/ephemeral/
+appmobile/macos/**/Pods/
+appmobile/macos/**/dgph
+appmobile/macos/**/xcuserdata/
+
+# Flutter Linux / Windows
+appmobile/linux/flutter/ephemeral
+appmobile/windows/flutter/ephemeral/
+appmobile/windows/*.suo
+appmobile/windows/*.user
+appmobile/windows/*.userosscache
+appmobile/windows/*.sln.docstates
+appmobile/windows/x64/
+appmobile/windows/x86/
+appmobile/windows/*.[Cc]ache

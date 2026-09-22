@@ -1,0 +1,39 @@
+name: macnation
+description: MAC NATION — barbershop et boutique capillaire à Dakar.
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.10.7
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.6.0
+  shared_preferences: ^2.5.5
+  url_launcher: ^6.3.2
+  google_sign_in: ^6.3.0
+  sign_in_with_apple: ^6.1.4
+  paytech: ^5.0.2
+
+dependency_overrides:
+  webview_flutter_android: 3.16.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+  fonts:
+    - family: BebasNeue
+      fonts:
+        - asset: assets/fonts/BebasNeue-Regular.ttf
+    - family: Manrope
+      fonts:
+        - asset: assets/fonts/Manrope-Regular.ttf
+

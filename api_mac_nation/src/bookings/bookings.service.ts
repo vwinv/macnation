@@ -1,0 +1,260 @@
+import {
+  Injectable,
+  NotFoundException,
+  UnprocessableEntityException,
+} from '@nestjs/common';
+import { CatalogService } from '../catalog/catalog.service';
+import {
+  bookingAmount,
+  bookingLines,
+  parsePaymentMethod,
+} from '../common/money';
+import { isSnMobile, normalizePhone } from '../common/phone';
+import {
+  durationMinutes,
+  generateStarts,
+  leadMinutes,
+  rangesOverlap,
+  slotRange,
+  toMinutes,
+} from '../common/schedule';
+import { NotifyService } from '../notify/notify.service';
+import { StoreService } from '../store/store.service';
+import type { Client } from '../store/store.types';
+import { CreateBookingDto } from './bookings.dto';
+
+function formatDateLabel(iso: string) {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  }).format(d);
+}
+
+@Injectable()
+export class BookingsService {
+  constructor(
+    private readonly store: StoreService,
+    private readonly catalog: CatalogService,
+    private readonly notify: NotifyService,
+  ) {}
+
+  async publicSchedule() {
+    const schedule = await this.store.getSchedule();
+    return {
+      hours: schedule.hours,
+      closedDates: schedule.closedDates.map((item) => item.dateIso),
+    };
+  }
+
+  async slots(date: string, serviceId?: string) {
+    const day = date.slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
+      throw new UnprocessableEntityException(
+        'Indique une date au format AAAA-MM-JJ.',
+      );
+    }
+    const service = serviceId
+      ? await this.catalog.service(serviceId.trim())
+      : null;
+    const durationMin = durationMinutes(service?.duration);
+    const dayStatus = await this.store.dayStatus(day);
+    if (dayStatus.closed) {
+      return {
+        date: day,
+        closed: true,
+        reason: dayStatus.reason,
+        durationMin,
+        slots: [] as {
+          time: string;
+          end: string;
+          label: string;
+          available: boolean;
+        }[],
+      };
+    }
+    const occupied = await this.store.occupiedRanges(day);
+    const buffer = leadMinutes(day);
+    const starts = generateStarts(
+      dayStatus.hour.openTime,
+      dayStatus.hour.closeTime,
+      durationMin,
+      undefined,
+      {
+        start: dayStatus.hour.pauseStart,
+        end: dayStatus.hour.pauseEnd,
+      },
+    );
+    return {
+      date: day,
+      closed: false,
+      reason: '',
+      durationMin,
+      slots: starts.map((time) => {
+        const start = toMinutes(time);
+        const end = start + durationMin;
+        const taken = occupied.some((range) =>
+          rangesOverlap(start, end, range.start, range.end),
+        );
+        const tooSoon = buffer != null && start < buffer;
+        const range = slotRange(time, durationMin);
+        return {
+          time,
+          end: range.end,
+          label: range.label,
+          available: !taken && !tooSoon,
+        };
+      }),
+    };
+  }
+
+  async create(dto: CreateBookingDto, client?: Client) {
+    const name = dto.name.trim();
+    const phone = normalizePhone(dto.phone);
+    const email = (dto.email || client?.email || '').trim();
+    const service = await this.catalog.service(dto.serviceId.trim());
+    const dateIso = dto.dateIso.slice(0, 10);
+    const time = dto.time;
+    const place =
+      dto.place === 'domicile' || dto.place === 'home' ? 'domicile' : 'salon';
+    const address = (dto.address || '').trim();
+    const payNow = dto.payNow === true;
+    const paymentMethod = parsePaymentMethod(dto.paymentMethod);
+
+    if (!name || !phone || !service || !dateIso || !time) {
+      throw new UnprocessableEntityException('Informations incomplètes.');
+    }
+    if (!isSnMobile(phone)) {
+      throw new UnprocessableEntityException(
+        'Indiquez un numéro sénégalais valide (77, 78, 76, 70…).',
+      );
+    }
+    if (place === 'domicile' && !address && service.id !== 'domicile') {
+      throw new UnprocessableEntityException(
+        'Adresse requise pour un rendez-vous à domicile.',
+      );
+    }
+    if (service.price == null) {
+      throw new UnprocessableEntityException(
+        'Cette prestation se confirme au salon (sur devis).',
+      );
+    }
+
+    const durationMin = durationMinutes(service.duration);
+    const availability = await this.slots(dateIso, service.id);
+    if (availability.closed) {
+      throw new UnprocessableEntityException(
+        availability.reason || 'Le salon est fermé ce jour-là.',
+      );
+    }
+    const chosen = availability.slots.find((slot) => slot.time === time);
+    if (!chosen?.available) {
+      throw new UnprocessableEntityException(
+        'Cette plage n’est plus disponible. Choisis un autre horaire.',
+      );
+    }
+
+    const dateLabel = dto.dateLabel?.trim() || formatDateLabel(dateIso);
+    const note = `${dateLabel} · ${chosen.label} · ${
+      place === 'domicile' ? address || 'Domicile' : 'Salon Nord Foire'
+    }`;
+    const amount = bookingAmount(service.price ?? 0, place, service.id);
+    const items = bookingLines(service.name, service.price ?? 0, place, service.id);
+    const loggedIn = Boolean(client);
+    const ensured = await this.store.ensurePublicClient({
+      clientId: client?.id,
+      name,
+      phone,
+      email,
+    });
+    if (ensured.generatedPassword) {
+      await this.notify.accountCreated({
+        name,
+        phone,
+        email,
+        password: ensured.generatedPassword,
+      });
+    }
+    const clientId = ensured.id || client?.id;
+    const accountCreated = Boolean(ensured.generatedPassword);
+
+    if (payNow && amount > 0) {
+      const pending = await this.store.createPendingPayment({
+        amount,
+        phone,
+        payload: {
+          kind: 'booking',
+          name,
+          phone,
+          email,
+          serviceId: service.id,
+          serviceName: service.name,
+          dateIso,
+          dateLabel,
+          time,
+          durationMin,
+          place,
+          address,
+          amount,
+          items,
+          note,
+          clientId,
+          confirmed: loggedIn,
+        },
+      });
+      return {
+        ok: true as const,
+        booking: null,
+        invoiceId: '',
+        pendingId: pending.id,
+        amount,
+        paid: false,
+        accountCreated,
+        loginRequired: !loggedIn,
+      };
+    }
+
+    const created = await this.store.createBooking({
+      name,
+      phone,
+      email,
+      serviceId: service.id,
+      serviceName: service.name,
+      dateIso,
+      dateLabel,
+      time,
+      durationMin,
+      place,
+      address,
+      amount,
+      paymentStatus: 'unpaid',
+      paymentMethod,
+      items,
+      note,
+      clientId,
+      confirmed: loggedIn,
+    });
+
+    return {
+      ok: true as const,
+      booking: created.booking,
+      invoiceId: created.invoiceId,
+      amount: created.amount,
+      paid: created.booking.paymentStatus === 'paid',
+      accountCreated,
+      loginRequired: !loggedIn,
+    };
+  }
+
+  mine(client: Client) {
+    return this.store.bookingsForClient(client);
+  }
+
+  async one(id: string, client: Client) {
+    const booking = (await this.mine(client)).find((item) => item.id === id);
+    if (!booking) throw new NotFoundException('Rendez-vous introuvable.');
+    return booking;
+  }
+}
