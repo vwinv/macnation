@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { formatFcfa } from "@/lib/money";
+import { goToPaytech, openPaytechWindow } from "@/lib/paytech-tab";
 import LoginPopup from "@/components/LoginPopup";
 
 type SoftPayMethod = "wave" | "orange" | "free";
@@ -33,6 +34,7 @@ type Props = {
   hideMethods?: boolean;
   accountCreated?: boolean;
   kind?: "booking" | "boutique" | "abonnement";
+  autoStart?: boolean;
   onPaid?: () => void;
 };
 
@@ -59,7 +61,7 @@ async function sessionExists() {
   }
 }
 
-export default function SoftPay({ invoiceId, pendingId, amount, name, phone, email, hideAmount, hideMethods, accountCreated, kind, onPaid }: Props) {
+export default function SoftPay({ invoiceId, pendingId, amount, name, phone, email, hideAmount, hideMethods, accountCreated, kind, autoStart, onPaid }: Props) {
   const [method, setMethod] = useState<SoftPayMethod | undefined>(() =>
     hideMethods ? undefined : suggestedMethod(phone),
   );
@@ -71,6 +73,7 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
   const [paidBooking, setPaidBooking] = useState<PayStatus["booking"]>();
   const [result, setResult] = useState<SoftPayResult | null>(null);
   const [loginOpen, setLoginOpen] = useState(false);
+  const started = useRef(false);
 
   useEffect(() => {
     if (paid || (!pendingId && !invoiceId)) return;
@@ -99,6 +102,7 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
   async function pay() {
     setError("");
     setSending(true);
+    const tab = openPaytechWindow();
     try {
       const res = await fetch("/api/paytech/checkout", {
         method: "POST",
@@ -115,15 +119,19 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
       });
       const json = (await res.json().catch(() => null)) as (SoftPayResult & { error?: string }) | null;
       if (!res.ok || !json || json.error) {
+        tab?.close();
         setError(json?.error || "Paiement indisponible.");
         return;
       }
       setResult(json);
       setWaiting(true);
       if (json.url) {
-        const opened = window.open(json.url, "_blank", "noopener,noreferrer");
-        if (!opened) setError("Autorise la fenêtre de paiement, puis clique Continuer.");
+        if (!goToPaytech(json.url, tab)) {
+          setError("Autorise la fenêtre de paiement, puis clique Continuer.");
+        }
+        return;
       }
+      tab?.close();
     } catch {
       setError("Connexion interrompue. Réessaie.");
     } finally {
@@ -147,6 +155,12 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
     setLoginOpen(false);
     void pay();
   }
+
+  useEffect(() => {
+    if (!autoStart || started.current || paid) return;
+    started.current = true;
+    void startPay();
+  }, [autoStart, paid]);
 
   if (paid) {
     const bookingOk = kind === "booking" || Boolean(paidBooking);

@@ -37,11 +37,20 @@ export default function PageHero({
     >
       {showImage && image ? (
         <>
-          <Image src={image} alt="" fill priority className="object-cover object-[50%_42%]" sizes="100vw" />
+          <Image
+            src={image}
+            alt=""
+            fill
+            priority
+            className="z-[1] object-cover object-[50%_42%]"
+            sizes="100vw"
+          />
           {blur ? (
-            <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" />
-          ) : photo ? null : (
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/75 to-black/35" />
+            <div className="absolute inset-0 z-[2] bg-black/45 backdrop-blur-sm" />
+          ) : photo ? (
+            <div className="absolute inset-0 z-[2] bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+          ) : (
+            <div className="absolute inset-0 z-[2] bg-gradient-to-t from-background via-background/75 to-black/35" />
           )}
         </>
       ) : null}
@@ -73,7 +82,13 @@ export default function PageHero({
           ) : null}
           {subtitle ? (
             <Reveal delay={0.08}>
-              <p className="mt-6 max-w-[60ch] text-sm leading-relaxed text-gray-600 md:text-base">{subtitle}</p>
+              <p
+                className={`mt-6 max-w-[60ch] text-sm leading-relaxed md:text-base ${
+                  photo || blur ? "text-white/85" : "text-gray-600"
+                }`}
+              >
+                {subtitle}
+              </p>
             </Reveal>
           ) : null}
         </div>

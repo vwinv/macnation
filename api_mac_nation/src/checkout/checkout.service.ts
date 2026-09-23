@@ -37,45 +37,73 @@ export class CheckoutService {
       );
     }
 
-    let lineName = '';
-    let unitPrice = 0;
     let invoiceKind: 'boutique' | 'abonnement' = 'boutique';
     let note = '';
     let planId: string | undefined;
-    const resolvedId = dto.itemId;
+    let items: { name: string; qty: number; unitPrice: number }[] = [];
 
     if (dto.kind === 'boutique') {
-      const product = await this.catalog.product(resolvedId);
-      if (!product) throw new NotFoundException('Produit introuvable.');
-      lineName = product.name;
-      unitPrice = product.price;
+      const lines = dto.items?.length
+        ? dto.items
+        : dto.itemId
+          ? [{ itemId: dto.itemId, qty }]
+          : [];
+      if (!lines.length) {
+        throw new UnprocessableEntityException('Votre panier est vide.');
+      }
+      const merged = new Map<string, number>();
+      for (const line of lines) {
+        const id = String(line.itemId || '').trim();
+        if (!id) continue;
+        const next = Math.min(10, (merged.get(id) || 0) + Math.min(10, Math.max(1, Math.trunc(Number(line.qty)) || 1)));
+        merged.set(id, next);
+      }
+      for (const [id, lineQty] of merged) {
+        const product = await this.catalog.product(id);
+        if (!product) throw new NotFoundException('Produit introuvable.');
+        if (product.price <= 0) {
+          throw new UnprocessableEntityException('Montant à confirmer au salon.');
+        }
+        items.push({ name: product.name, qty: lineQty, unitPrice: product.price });
+      }
+      if (!items.length) {
+        throw new UnprocessableEntityException('Votre panier est vide.');
+      }
       note = 'Boutique · retrait au salon Nord Foire';
     } else if (dto.kind === 'abonnement') {
-      const plan = await this.catalog.plan(resolvedId);
+      if (!dto.itemId) throw new NotFoundException('Abonnement introuvable.');
+      const plan = await this.catalog.plan(dto.itemId);
       if (!plan) throw new NotFoundException('Abonnement introuvable.');
-      lineName = `Abonnement ${plan.name} · ${plan.period}`;
-      unitPrice = plan.price;
+      items = [
+        {
+          name: `Abonnement ${plan.name} · ${plan.period}`,
+          qty: 1,
+          unitPrice: plan.price,
+        },
+      ];
       invoiceKind = 'abonnement';
       note = `Abonnement ${plan.name} · 1 mois`;
       planId = plan.id;
     }
 
-    if (unitPrice <= 0) {
+    if (!items.length || items.some((item) => item.unitPrice <= 0)) {
       throw new UnprocessableEntityException('Montant à confirmer au salon.');
     }
 
-    const quantity = invoiceKind === 'abonnement' ? 1 : qty;
-    const items = [
-      {
-        name: lineName,
-        qty: quantity,
-        unitPrice,
-      },
-    ];
-    const amount = items[0].qty * items[0].unitPrice;
-    const label = `${lineName}${quantity > 1 ? ` × ${quantity}` : ''}`;
+    const amount = items.reduce((sum, item) => sum + item.qty * item.unitPrice, 0);
+    const label = items
+      .map((item) => `${item.name}${item.qty > 1 ? ` × ${item.qty}` : ''}`)
+      .join(', ');
     const online = method === 'wave' || method === 'orange' || method === 'free';
     const loggedIn = Boolean(client);
+    if (!loggedIn && !email) {
+      const existing = await this.store.findClientByPhone(phone);
+      if (!existing) {
+        throw new UnprocessableEntityException(
+          'Indiquez votre email pour recevoir vos accès.',
+        );
+      }
+    }
     const ensured = await this.store.ensurePublicClient({
       clientId: client?.id,
       name,

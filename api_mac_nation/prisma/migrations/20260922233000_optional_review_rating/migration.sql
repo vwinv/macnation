@@ -1,0 +1,1 @@
+ALTER TABLE "ProductReview" ALTER COLUMN "rating" DROP NOT NULL;

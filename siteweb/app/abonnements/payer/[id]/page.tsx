@@ -18,18 +18,15 @@ export default async function AbonnementPayerPage({ params }: { params: Promise<
       <Link href="/abonnements" className="text-sm text-gray-500 hover:text-black">
         ← Abonnements
       </Link>
-      <ul className="mt-8 mb-8 space-y-2 text-sm text-gray-400">
-        {plan.perks.map((point) => (
-          <li key={point}>· {point}</li>
-        ))}
-      </ul>
-      <CheckoutForm
-        kind="abonnement"
-        itemId={plan.id}
-        title={plan.name}
-        amount={plan.price}
-        hint={`${plan.period}. Valable à Nord Foire. Les visites non utilisées ne se reportent pas.`}
-      />
+      <div className="mt-8">
+        <CheckoutForm
+          kind="abonnement"
+          itemId={plan.id}
+          title={plan.name}
+          amount={plan.price}
+          hint={`${plan.period}. Valable à Nord Foire. Les visites non utilisées ne se reportent pas.`}
+        />
+      </div>
     </main>
   );
 }

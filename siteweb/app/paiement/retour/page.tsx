@@ -1,4 +1,5 @@
 import Link from "next/link";
+import ClearCartOnPaid from "@/components/ClearCartOnPaid";
 import { getPublicInvoice, settlePaytech, settlePaytechPending } from "@/lib/api";
 import { formatFcfa } from "@/lib/money";
 
@@ -18,15 +19,18 @@ export default async function PaiementRetourPage({
   const pendingId = first(sp.pending);
   let invoice = invoiceId ? await getPublicInvoice(invoiceId) : null;
   let paid = invoice?.status === "payee";
+  let kind = invoice?.kind;
   let booking: { dateLabel: string; time: string; serviceName: string } | undefined;
 
   if (pendingId && !paid) {
     const pending = await settlePaytechPending(pendingId);
     paid = pending.paid;
     booking = pending.booking;
+    kind = pending.kind || kind;
     if (pending.invoiceId) {
       invoice = (await getPublicInvoice(pending.invoiceId)) || invoice;
       paid = invoice?.status === "payee" || paid;
+      kind = invoice?.kind || kind;
     }
   }
 
@@ -44,6 +48,7 @@ export default async function PaiementRetourPage({
 
   return (
     <main className="flex min-h-dvh items-center justify-center bg-white px-5 py-12 text-center">
+      <ClearCartOnPaid paid={paid} kind={kind} />
       <div className="w-full max-w-md rounded-2xl bg-gray-950 p-8 stroke-gradient [--stroke-opacity:0.2]">
         <p className="text-xs tracking-[0.22em] text-[#e0b12c]">MAC NATION</p>
         <h1 className="font-bebas mt-3 text-5xl text-black">

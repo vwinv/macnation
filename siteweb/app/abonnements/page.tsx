@@ -16,13 +16,11 @@ export default async function AbonnementsPage() {
 
   return (
     <main>
-      <PageHero
-        kicker="Wave · Orange Money · Free Money"
-        title="Abonnements"
-        subtitle="Payer en ligne par Wave, Orange Money ou Free Money. Valable uniquement à Nord Foire."
-        image={pageImages.abonnements}
-      />
-      <section className="mx-auto grid max-w-[1100px] grid-cols-1 gap-6 px-6 pb-12 md:grid-cols-3">
+      <PageHero title="Abonnements" image={pageImages.abonnements} overlay="blur" />
+      <section className="mx-auto grid max-w-[1100px] grid-cols-1 gap-6 px-6 pb-12 pt-12 sm:pt-16 md:grid-cols-3">
+        <p className="col-span-full mx-auto mb-6 max-w-[60ch] text-center text-sm leading-relaxed text-black sm:mb-10 md:text-base">
+          Payer en ligne par Wave, Orange Money ou Free Money. Valable uniquement à Nord Foire.
+        </p>
         {plans.length === 0 ? (
           <p className="text-sm text-gray-500">Aucun abonnement pour le moment.</p>
         ) : (
@@ -41,16 +39,20 @@ export default async function AbonnementsPage() {
                 <h2 className="font-bebas text-4xl text-black">{plan.name}</h2>
                 <p className="mt-4 font-bebas text-5xl text-black">{formatFcfa(plan.price)}</p>
                 <p className="text-sm text-gray-500">{plan.period}</p>
-                <ul className="mt-8 flex-1 space-y-3 text-sm text-gray-600">
-                  {plan.perks.map((point) => (
-                    <li key={point}>{point}</li>
-                  ))}
-                </ul>
+                {plan.perks.length ? (
+                  <ul className="mt-8 flex-1 space-y-3 text-sm text-gray-600">
+                    {plan.perks.map((point) => (
+                      <li key={point}>{point}</li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="flex-1" />
+                )}
                 <Link
                   href={`/abonnements/payer/${plan.id}`}
                   className="btn-gold mt-8 inline-flex h-12 items-center justify-center rounded-lg text-sm font-medium"
                 >
-                  Payer par Wave / Orange / Free
+                  Payer
                 </Link>
               </article>
             </Reveal>

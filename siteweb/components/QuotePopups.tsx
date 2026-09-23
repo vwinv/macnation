@@ -33,7 +33,7 @@ function Shell({
 }) {
   if (typeof document === "undefined") return null;
   return createPortal(
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
+    <div className="fixed inset-0 z-[90] flex items-end justify-center bg-black/50 p-4 sm:items-center" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"

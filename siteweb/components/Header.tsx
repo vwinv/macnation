@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { List, X } from "@phosphor-icons/react";
 import { navLinks } from "@/lib/assets";
 import AccountNav from "@/components/AccountNav";
+import CartDropdown from "@/components/CartDropdown";
 import ReserveLink from "@/components/ReserveLink";
 
 export default function Header() {
@@ -55,6 +56,7 @@ export default function Header() {
             })}
           </ul>
           <AccountNav className="relative hidden whitespace-nowrap p-3 text-sm tracking-wide text-white/55 transition-all duration-300 hover:scale-[1.03] hover:text-white sm:block" />
+          <CartDropdown />
           <Link
             href="/#equipe"
             className="btn-black relative hidden h-10 items-center justify-center rounded-lg px-4 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] sm:inline-flex"

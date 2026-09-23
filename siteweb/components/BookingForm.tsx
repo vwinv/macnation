@@ -26,6 +26,12 @@ const MONTHS = [
 const STEP_LABELS_PAY = ["Prestation", "Créneau", "Paiement"] as const;
 const STEP_LABELS_QUOTE = ["Prestation", "Créneau", "Infos"] as const;
 
+type MembershipInfo = {
+  planName: string;
+  visitsLeft: number;
+  visitsTotal: number;
+};
+
 type Confirmation = {
   name: string;
   phone: string;
@@ -38,6 +44,9 @@ type Confirmation = {
   invoiceId?: string;
   pendingId?: string;
   amount?: number;
+  usedMembership?: boolean;
+  visitsLeft?: number;
+  visitsTotal?: number;
   accountCreated?: boolean;
   loginRequired?: boolean;
 };
@@ -145,6 +154,8 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
   const [done, setDone] = useState<Confirmation | null>(null);
   const [paidOk, setPaidOk] = useState(false);
   const [payNow, setPayNow] = useState(true);
+  const [useMembership, setUseMembership] = useState(false);
+  const [membership, setMembership] = useState<MembershipInfo | null>(null);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -220,11 +231,18 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
   useEffect(() => {
     fetch("/api/compte/session", { cache: "no-store" })
       .then((res) => res.json())
-      .then((json: { name?: string; phone?: string; email?: string }) => {
+      .then((json: { name?: string; phone?: string; email?: string; membership?: MembershipInfo | null }) => {
         if (json.name || json.phone) {
           setName((current) => current || json.name || "");
           setPhone((current) => current || json.phone || "");
           setEmail((current) => current || json.email || "");
+        }
+        if (json.membership) {
+          setMembership(json.membership);
+          if (json.membership.visitsLeft > 0) {
+            setUseMembership(true);
+            setPayNow(false);
+          }
         }
       })
       .catch(() => undefined);
@@ -321,7 +339,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
       name: name.trim(),
       phone: phone.trim(),
       email: email.trim(),
-      service: `${service.name} · ${quotedPriceLabel(service, place)}`,
+      service: `${service.name} · ${useMembership && membership && membership.visitsLeft > 0 ? `Inclus · ${membership.planName}` : quotedPriceLabel(service, place)}`,
       dateLabel: dateLabel(selected),
       time: timeLabel || time,
       place,
@@ -344,7 +362,8 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
           time,
           place,
           address: confirmation.address,
-          payNow: onQuote ? false : payNow,
+          payNow: onQuote || useMembership ? false : payNow,
+          useMembership: Boolean(membership && membership.visitsLeft > 0 && useMembership && !onQuote),
         }),
       });
       const json = (await res.json().catch(() => null)) as {
@@ -352,6 +371,8 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
         invoiceId?: string;
         pendingId?: string;
         amount?: number;
+        usedMembership?: boolean;
+        membership?: { visitsLeft?: number; visitsTotal?: number };
         accountCreated?: boolean;
         loginRequired?: boolean;
       } | null;
@@ -364,9 +385,17 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
         invoiceId: json?.invoiceId,
         pendingId: json?.pendingId,
         amount: json?.amount,
+        usedMembership: json?.usedMembership,
+        visitsLeft: json?.membership?.visitsLeft,
+        visitsTotal: json?.membership?.visitsTotal,
         accountCreated: json?.accountCreated,
         loginRequired: json?.loginRequired,
       });
+      if (json?.usedMembership && membership) {
+        const visitsLeft = Math.max(0, membership.visitsLeft - 1);
+        setMembership({ ...membership, visitsLeft });
+        if (visitsLeft === 0) setUseMembership(false);
+      }
       requestAnimationFrame(() => {
         box.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       });
@@ -386,9 +415,15 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
     setTimeLabel("");
     setServiceId("");
     setPlace("salon");
-    setPayNow(true);
     setError("");
     setAddress("");
+    if (membership && membership.visitsLeft > 0) {
+      setUseMembership(true);
+      setPayNow(false);
+    } else {
+      setUseMembership(false);
+      setPayNow(true);
+    }
   }
 
   return (
@@ -398,7 +433,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
           {paidOk || !done.pendingId ? <CheckCircle size={42} weight="fill" className="text-[#e0b12c]" /> : null}
           <div>
             <p className="font-bebas text-4xl text-black">
-              {paidOk
+              {paidOk || done.usedMembership
                 ? "Rendez-vous pris"
                 : done.pendingId
                   ? "Payer pour confirmer"
@@ -409,8 +444,8 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                     : "Rendez-vous demandé"}
             </p>
             <p className="mt-2 text-sm text-gray-400">
-              {paidOk
-                ? `Merci ${done.name}. Ton rendez-vous du ${done.dateLabel} à ${done.time} est bien confirmé. Un e-mail part vers ${done.email || done.phone}.`
+              {paidOk || done.usedMembership
+                ? `Merci ${done.name}. Ton rendez-vous du ${done.dateLabel} à ${done.time} est bien confirmé${done.usedMembership ? ", inclus dans ton abonnement" : ""}. On t’attend au salon.`
                 : done.pendingId
                   ? `Merci ${done.name}. Dès que le paiement Wave, Orange Money ou Free Money est validé, ton rendez-vous est confirmé automatiquement.`
                   : /sur devis/i.test(done.service)
@@ -441,6 +476,14 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
               <li className="flex justify-between gap-4">
                 <span className="text-gray-500">Montant</span>
                 <span className="text-right">{formatFcfa(done.amount)}</span>
+              </li>
+            ) : null}
+            {done.usedMembership && typeof done.visitsLeft === "number" && typeof done.visitsTotal === "number" ? (
+              <li className="flex justify-between gap-4">
+                <span className="text-gray-500">Forfait</span>
+                <span className="text-right">
+                  {done.visitsLeft} / {done.visitsTotal} visite{done.visitsTotal > 1 ? "s" : ""} restante{done.visitsLeft > 1 ? "s" : ""}
+                </span>
               </li>
             ) : null}
           </ul>
@@ -486,7 +529,32 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
               {service && !onQuote ? (
                 <div>
                   <p className="text-sm font-medium text-black">Paiement du rendez-vous</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
+                  <div className={`mt-3 grid gap-2 ${membership ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-2"}`}>
+                    {membership ? (
+                      <button
+                        type="button"
+                        disabled={membership.visitsLeft <= 0}
+                        onClick={() => {
+                          if (membership.visitsLeft <= 0) return;
+                          setUseMembership(true);
+                          setPayNow(false);
+                        }}
+                        className={`rounded-xl px-4 py-3 text-left transition-colors ${
+                          membership.visitsLeft <= 0
+                            ? "cursor-not-allowed bg-gray-900 text-gray-600 opacity-50 ring-1 ring-black/10"
+                            : useMembership
+                              ? "btn-gold cursor-pointer"
+                              : "cursor-pointer bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                        }`}
+                      >
+                        <span className="block text-sm font-medium">Mon abonnement</span>
+                        <span className={`mt-0.5 block text-xs ${useMembership && membership.visitsLeft > 0 ? "text-black/70" : "text-gray-500"}`}>
+                          {membership.visitsLeft > 0
+                            ? `${membership.planName} · ${membership.visitsLeft} / ${membership.visitsTotal} visite${membership.visitsTotal > 1 ? "s" : ""}`
+                            : `${membership.planName} · plus de visites`}
+                        </span>
+                      </button>
+                    ) : null}
                     {(
                       [
                         { id: "now", label: "Payer maintenant", hint: "Wave · Orange · Free" },
@@ -496,13 +564,16 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                       <button
                         key={opt.id}
                         type="button"
-                        onClick={() => setPayNow(opt.id === "now")}
+                        onClick={() => {
+                          setUseMembership(false);
+                          setPayNow(opt.id === "now");
+                        }}
                         className={`cursor-pointer rounded-xl px-4 py-3 text-left transition-colors ${
-                          (opt.id === "now") === payNow ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                          !useMembership && (opt.id === "now") === payNow ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
                         }`}
                       >
                         <span className="block text-sm font-medium">{opt.label}</span>
-                        <span className={`mt-0.5 block text-xs ${(opt.id === "now") === payNow ? "text-white/70" : "text-gray-500"}`}>
+                        <span className={`mt-0.5 block text-xs ${!useMembership && (opt.id === "now") === payNow ? "text-white/70" : "text-gray-500"}`}>
                           {opt.hint}
                         </span>
                       </button>
@@ -517,7 +588,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                   {(
                     [
                       { id: "salon", label: "Au salon", hint: "Nord Foire" },
-                      { id: "domicile", label: "À domicile", hint: "+ 2 000 F" },
+                      { id: "domicile", label: "À domicile", hint: useMembership && membership && membership.visitsLeft > 0 ? "Inclus" : "+ 2 000 F" },
                     ] as const
                   ).map((opt) => (
                     <button
@@ -731,8 +802,14 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                   <p className="mt-1 text-sm capitalize text-gray-500">
                     {dateLabel(selected)} · {timeLabel || time} · {place === "domicile" ? "À domicile" : "Salon"}
                   </p>
-                  <p className="mt-2 font-medium text-black">{quotedPriceLabel(service, place)}</p>
-                  {onQuote ? (
+                  <p className="mt-2 font-medium text-black">
+                    {useMembership && membership ? `Inclus · ${membership.planName}` : quotedPriceLabel(service, place)}
+                  </p>
+                  {useMembership && membership ? (
+                    <p className="mt-1 text-xs text-gray-500">
+                      1 visite déduite · {membership.visitsLeft} / {membership.visitsTotal} restante{membership.visitsLeft > 1 ? "s" : ""}
+                    </p>
+                  ) : onQuote ? (
                     <p className="mt-1 text-xs text-gray-500">Pas de paiement en ligne. Tarif confirmé au salon.</p>
                   ) : place === "domicile" && service.id !== "domicile" ? (
                     <p className="mt-1 text-xs text-gray-500">Dont {formatFcfa(DOMICILE_FEE)} de déplacement</p>
@@ -812,14 +889,16 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                   className="btn-gold h-12 cursor-pointer rounded-lg text-sm font-medium active:scale-[0.98] disabled:cursor-wait disabled:opacity-70"
                 >
                   {sending
-                    ? onQuote || !payNow
+                    ? useMembership || onQuote || !payNow
                       ? "Envoi…"
                       : "Préparation du paiement…"
-                    : onQuote
-                      ? "Demander le rendez-vous"
-                      : payNow
-                        ? "Réserver et payer"
-                        : "Confirmer"}
+                    : useMembership
+                      ? "Réserver avec mon abonnement"
+                      : onQuote
+                        ? "Demander le rendez-vous"
+                        : payNow
+                          ? "Réserver et payer"
+                          : "Confirmer"}
                 </button>
               </div>
               <p className="text-xs text-gray-500">

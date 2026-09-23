@@ -118,14 +118,22 @@ export class CompteController {
 
   @Get('session')
   @UseGuards(OptionalAuthGuard)
-  session(@CurrentClient() client?: Client) {
+  async session(@CurrentClient() client?: Client) {
     if (!client) return { name: '' };
     const publicClient = this.store.publicClient(client);
+    const membership = await this.store.currentMembershipFor(client.id);
     return {
       name: publicClient.name,
       phone: publicClient.phone,
       email: publicClient.email,
       id: publicClient.id,
+      membership: membership
+        ? {
+            planName: membership.planName,
+            visitsLeft: Math.max(0, membership.visitsTotal - membership.visitsUsed),
+            visitsTotal: membership.visitsTotal,
+          }
+        : null,
     };
   }
 

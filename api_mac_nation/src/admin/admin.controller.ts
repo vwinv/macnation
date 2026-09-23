@@ -15,10 +15,11 @@ import {
   Query,
   Res,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
 import { CatalogService, type UploadedPhoto } from '../catalog/catalog.service';
 import { AdminGuard } from '../auth/admin.guard';
@@ -83,12 +84,30 @@ function parseProductBody(raw: unknown) {
     const n = Number(priceRaw);
     price = Number.isFinite(n) ? Math.max(0, Math.round(n)) : undefined;
   }
+  let images: string[] | undefined;
+  const rawImages = payload.images;
+  if (Array.isArray(rawImages)) {
+    images = rawImages.map((item) => String(item).trim()).filter(Boolean);
+  } else if (typeof rawImages === 'string' && rawImages.trim()) {
+    try {
+      const parsed = JSON.parse(rawImages) as unknown;
+      images = Array.isArray(parsed)
+        ? parsed.map((item) => String(item).trim()).filter(Boolean)
+        : [rawImages.trim()];
+    } catch {
+      images = [rawImages.trim()];
+    }
+  } else if (rawImages === '' || rawImages === '[]') {
+    images = [];
+  }
+
   return {
     name: text(payload.name),
     description:
       payload.description === undefined ? undefined : text(payload.description),
     category: payload.category === undefined ? undefined : text(payload.category),
     image: payload.image === undefined ? undefined : text(payload.image),
+    images,
     price,
     active:
       payload.active === undefined
@@ -560,33 +579,37 @@ export class AdminController {
 
   @Post('products')
   @HttpCode(200)
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  @UseInterceptors(FilesInterceptor('photos', 4, { limits: { fileSize: 5_000_000 } }))
   async createProduct(
     @Body() body: unknown,
-    @UploadedFile() photo?: UploadedPhoto,
+    @UploadedFiles() photos?: UploadedPhoto[],
   ) {
     const input = parseProductBody(body);
     if (!input.name) throw new BadRequestException('Le nom est obligatoire.');
     if (input.price == null) {
       throw new BadRequestException('Le prix est obligatoire.');
     }
-    if (photo) {
-      input.image = await this.catalog.storeProductPhoto(photo);
+    const uploaded = await this.catalog.storeProductPhotos(photos);
+    if (uploaded.length) {
+      input.images = [...(input.images || []), ...uploaded].slice(0, 4);
+      input.image = input.images[0];
     }
     const product = await this.catalog.createProduct(input);
     return { product };
   }
 
   @Patch('products/:id')
-  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  @UseInterceptors(FilesInterceptor('photos', 4, { limits: { fileSize: 5_000_000 } }))
   async updateProduct(
     @Param('id') id: string,
     @Body() body: unknown,
-    @UploadedFile() photo?: UploadedPhoto,
+    @UploadedFiles() photos?: UploadedPhoto[],
   ) {
     const input = parseProductBody(body);
-    if (photo) {
-      input.image = await this.catalog.storeProductPhoto(photo);
+    const uploaded = await this.catalog.storeProductPhotos(photos);
+    if (uploaded.length || input.images != null) {
+      input.images = [...(input.images || []), ...uploaded].slice(0, 4);
+      input.image = input.images[0];
     }
     const product = await this.catalog.updateProduct(id, input);
     if (!product) throw new NotFoundException('Produit introuvable.');

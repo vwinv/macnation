@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import AddToCartButton from "@/components/AddToCartButton";
 import CatalogImage from "@/components/CatalogImage";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
@@ -19,11 +20,18 @@ export default async function BoutiquePage() {
   return (
     <main>
       <PageHero
-        title="Boutique capillaire"
-        subtitle="Payer par Wave, Orange Money ou Free Money. Tu récupères au salon, Nord Foire."
+        title={
+          <>
+            Boutique <span className="!text-[#e0b12c]">capillaire</span>
+          </>
+        }
         image={pageImages.boutique}
+        overlay="blur"
       />
-      <section className="mx-auto max-w-[1100px] px-6 pb-28">
+      <section className="mx-auto max-w-[1100px] px-6 pb-28 pt-12 sm:pt-16">
+        <p className="mx-auto mb-20 max-w-[60ch] text-center text-sm leading-relaxed text-black sm:mb-28 md:text-base">
+          Payer par Wave, Orange Money ou Free Money. Tu récupères au salon, Nord Foire.
+        </p>
         {products.length === 0 ? (
           <p className="text-sm text-gray-500">Aucun produit en vente pour le moment.</p>
         ) : (
@@ -41,15 +49,16 @@ export default async function BoutiquePage() {
                       ) : null}
                       <h3 className="mt-0.5 font-bebas !font-medium text-lg leading-tight text-black sm:text-xl">{p.name}</h3>
                       <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-gray-400">{p.description}</p>
-                      <div className="mt-auto flex flex-col gap-2 pt-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
                         <span className="font-bebas !font-medium text-lg text-black">{formatFcfa(p.price)}</span>
-                        <Link
-                          href={`/boutique/payer/${p.id}`}
-                          className="btn-black inline-flex h-8 items-center justify-center rounded-md px-3 text-xs font-medium"
-                        >
-                          Payer
-                        </Link>
+                        <AddToCartButton product={{ id: p.id, name: p.name, price: p.price, image: p.image }} />
                       </div>
+                      <Link
+                        href={`/boutique/${p.id}`}
+                        className="btn-gold mt-2 inline-flex h-8 w-full items-center justify-center rounded-md text-xs font-medium"
+                      >
+                        Voir
+                      </Link>
                     </div>
                   </article>
                 </Reveal>

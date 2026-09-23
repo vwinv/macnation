@@ -16,60 +16,94 @@ export async function apiFetch(path: string, init: RequestInit = {}) {
   return fetch(url, { ...init, headers, cache: "no-store" });
 }
 
-export async function getCatalogServices(): Promise<
-  {
-    id: string;
-    name: string;
-    duration: string;
-    description: string;
-    category: string;
-    image: string;
-    price: number | null;
-    priceLabel: string | null;
-  }[]
-> {
+export type CatalogService = {
+  id: string;
+  name: string;
+  duration: string;
+  description: string;
+  category: string;
+  image: string;
+  price: number | null;
+  priceLabel: string | null;
+};
+
+export async function getCatalogServices(): Promise<CatalogService[]> {
   const res = await apiFetch("/api/catalog/services");
   if (!res.ok) return [];
   const json = (await res.json().catch(() => null)) as unknown;
   return Array.isArray(json) ? json : [];
 }
 
-export async function getCatalogProducts(): Promise<
-  {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    image: string;
-    price: number;
-  }[]
-> {
+export async function getCatalogService(id: string): Promise<CatalogService | null> {
+  const res = await apiFetch(`/api/catalog/services/${id}`);
+  if (!res.ok) return null;
+  const json = (await res.json().catch(() => null)) as (CatalogService & { id?: string; name?: string }) | null;
+  if (!json?.id || !json.name) return null;
+  return json;
+}
+
+export type CatalogProduct = {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  image: string;
+  images?: string[];
+  price: number;
+};
+
+export async function getCatalogProducts(): Promise<CatalogProduct[]> {
   const res = await apiFetch("/api/catalog/products");
   if (!res.ok) return [];
   const json = (await res.json().catch(() => null)) as unknown;
   return Array.isArray(json) ? json : [];
 }
 
-export async function getCatalogProduct(id: string): Promise<{
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  image: string;
-  price: number;
-} | null> {
+export async function getCatalogProduct(id: string): Promise<CatalogProduct | null> {
   const res = await apiFetch(`/api/catalog/products/${id}`);
   if (!res.ok) return null;
-  const json = (await res.json().catch(() => null)) as { id?: string; name?: string } | null;
+  const json = (await res.json().catch(() => null)) as (CatalogProduct & { id?: string; name?: string }) | null;
   if (!json?.id || !json.name) return null;
-  return json as {
-    id: string;
-    name: string;
-    description: string;
-    category: string;
-    image: string;
-    price: number;
+  const images = Array.isArray(json.images) && json.images.length
+    ? json.images.filter(Boolean).slice(0, 4)
+    : json.image
+      ? [json.image]
+      : [];
+  return { ...json, image: images[0] || json.image, images };
+}
+
+export type CatalogFeedback = {
+  reviews: { id: string; createdAt: string; rating: number | null; comment: string; name: string }[];
+  average: number;
+  count: number;
+  myRating: number | null;
+};
+
+async function getCatalogFeedback(path: string): Promise<CatalogFeedback> {
+  const empty = { reviews: [], average: 0, count: 0, myRating: null };
+  const res = await apiFetch(path);
+  if (!res.ok) return empty;
+  const json = (await res.json().catch(() => null)) as {
+    reviews?: CatalogFeedback["reviews"];
+    average?: number;
+    count?: number;
+    myRating?: number | null;
+  } | null;
+  if (!json || !Array.isArray(json.reviews)) return empty;
+  return {
+    reviews: json.reviews,
+    average: Number(json.average) || 0,
+    count: Number(json.count) || json.reviews.length,
+    myRating: typeof json.myRating === "number" ? json.myRating : null,
   };
+}
+
+export function getCatalogProductReviews(id: string) {
+  return getCatalogFeedback(`/api/catalog/products/${id}/reviews`);
+}
+
+export function getCatalogServiceReviews(id: string) {
+  return getCatalogFeedback(`/api/catalog/services/${id}/reviews`);
 }
 
 export async function getPublicInvoice(id: string): Promise<Invoice | null> {

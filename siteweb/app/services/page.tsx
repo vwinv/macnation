@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import CatalogImage from "@/components/CatalogImage";
 import ReserveLink from "@/components/ReserveLink";
 import PageHero from "@/components/PageHero";
@@ -63,6 +64,12 @@ export default async function ServicesPage() {
                           Réserver
                         </ReserveLink>
                       </div>
+                      <Link
+                        href={`/services/${s.id}`}
+                        className="btn-gold mt-2 inline-flex h-8 w-full items-center justify-center rounded-md text-xs font-medium"
+                      >
+                        Voir
+                      </Link>
                     </div>
                   </article>
                 </Reveal>

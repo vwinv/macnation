@@ -47,6 +47,11 @@ export class CreateBookingDto {
   @IsOptional()
   @IsString()
   paymentMethod?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  @Transform(({ value }) => value === true || value === 'true')
+  useMembership?: boolean;
 }
 
 export class SlotsQueryDto {

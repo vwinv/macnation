@@ -389,13 +389,14 @@ export class StoreService {
     place: 'salon' | 'domicile';
     address: string;
     amount: number;
-    paymentStatus: 'unpaid' | 'pending';
+    paymentStatus: 'unpaid' | 'pending' | 'paid';
     paymentMethod?: PaymentMethod;
     items: InvoiceLine[];
     note: string;
     clientId?: string;
     confirmed?: boolean;
     ignoreHolds?: boolean;
+    consumeMembership?: boolean;
   }) {
     const durationMin = Math.max(5, input.durationMin || DEFAULT_DURATION_MIN);
     if (
@@ -439,6 +440,14 @@ export class StoreService {
         email: input.email,
       });
       const clientId = ensured.id;
+      if (input.consumeMembership) {
+        if (!clientId) {
+          throw new UnprocessableEntityException(
+            'Connecte-toi pour utiliser ton abonnement.',
+          );
+        }
+        await this.takeMembershipVisit(tx, clientId);
+      }
       const makeInvoice = input.amount > 0;
       const booking = await tx.booking.create({
         data: {
@@ -1029,7 +1038,14 @@ export class StoreService {
         data: { status },
         include: { invoice: true },
       });
-      if (status === 'termine') await this.consumeMembershipVisit(tx, row);
+      if (status === 'termine' && !this.isMembershipBooking(row)) {
+        await this.consumeMembershipVisit(tx, row);
+      }
+      if (status === 'annule') {
+        if (this.isMembershipBooking(current)) {
+          await this.restoreMembershipVisit(tx, current.clientId, current.phone);
+        }
+      }
       if (status === 'annule' && row.invoice) {
         await tx.invoice.updateMany({
           where: { id: row.invoice.id, status: { not: 'payee' } },
@@ -1239,10 +1255,7 @@ export class StoreService {
         where: { id: booking.id },
         data: {
           amount,
-          status:
-            booking.status === 'annule' || booking.status === 'termine'
-              ? booking.status
-              : 'nouveau',
+          status: booking.status === 'termine' ? booking.status : 'nouveau',
           paymentMethod: null,
         },
         include: { invoice: true },
@@ -1304,22 +1317,28 @@ export class StoreService {
         'Ce rendez-vous est déjà terminé.',
       );
     }
-    if (booking.paymentStatus === 'paid') {
+    if (booking.paymentStatus === 'paid' && !this.isMembershipBooking(booking)) {
       throw new UnprocessableEntityException(
         'Un rendez-vous payé ne peut pas être annulé ici.',
       );
     }
-    const row = await this.prisma.booking.update({
-      where: { id: booking.id },
-      data: { status: 'annule' },
-      include: { invoice: true },
-    });
-    if (row.invoice && row.invoice.status !== 'payee') {
-      await this.prisma.invoice.update({
-        where: { id: row.invoice.id },
-        data: { status: 'annulee' },
+    const row = await this.prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.update({
+        where: { id: booking.id },
+        data: { status: 'annule' },
+        include: { invoice: true },
       });
-    }
+      if (this.isMembershipBooking(booking)) {
+        await this.restoreMembershipVisit(tx, booking.clientId, booking.phone);
+      }
+      if (updated.invoice && updated.invoice.status !== 'payee') {
+        await tx.invoice.update({
+          where: { id: updated.invoice.id },
+          data: { status: 'annulee' },
+        });
+      }
+      return updated;
+    });
     return this.toBooking(row);
   }
 
@@ -1651,6 +1670,104 @@ export class StoreService {
     if (name.includes('nation')) return 'nation';
     if (name.includes('essentiel')) return 'essentiel';
     return 'signature';
+  }
+
+  async currentMembershipFor(clientId: string) {
+    await this.refreshMemberships(clientId);
+    const membership = await this.prisma.membership.findFirst({
+      where: { clientId, status: 'actif' },
+      orderBy: { expiresAt: 'desc' },
+    });
+    return membership ? this.toMembership(membership) : null;
+  }
+
+  async activeMembershipFor(clientId: string) {
+    const membership = await this.currentMembershipFor(clientId);
+    if (!membership || membership.visitsUsed >= membership.visitsTotal) {
+      return null;
+    }
+    return membership;
+  }
+
+  private isMembershipBooking(booking: {
+    paymentStatus: string;
+    paymentMethod?: string | null;
+    amount: number;
+  }) {
+    return (
+      booking.paymentStatus === 'paid' &&
+      booking.paymentMethod === 'autre' &&
+      booking.amount <= 0
+    );
+  }
+
+  private async restoreMembershipVisit(
+    tx: Prisma.TransactionClient,
+    clientId?: string | null,
+    phone?: string,
+  ) {
+    const client = await this.resolveClient(tx, clientId, phone || '');
+    if (!client) return;
+    const membership = await tx.membership.findFirst({
+      where: { clientId: client.id, visitsUsed: { gt: 0 } },
+      orderBy: { startedAt: 'desc' },
+    });
+    if (!membership) return;
+    await tx.membership.update({
+      where: { id: membership.id },
+      data: { visitsUsed: { decrement: 1 } },
+    });
+  }
+
+  async consumeVisitForClient(clientId: string) {
+    return this.prisma.$transaction((tx) =>
+      this.takeMembershipVisit(tx, clientId),
+    );
+  }
+
+  private async takeMembershipVisit(
+    tx: Prisma.TransactionClient,
+    clientId: string,
+  ) {
+    await tx.membership.updateMany({
+      where: {
+        clientId,
+        status: 'actif',
+        expiresAt: { lt: new Date() },
+      },
+      data: { status: 'expire' },
+    });
+    const membership = await tx.membership.findFirst({
+      where: { clientId, status: 'actif' },
+      orderBy: { expiresAt: 'desc' },
+    });
+    if (!membership || membership.visitsUsed >= membership.visitsTotal) {
+      throw new UnprocessableEntityException(
+        'Plus de visites sur ton abonnement.',
+      );
+    }
+    const consumed = await tx.membership.updateMany({
+      where: {
+        id: membership.id,
+        status: 'actif',
+        visitsUsed: { lt: membership.visitsTotal },
+      },
+      data: { visitsUsed: { increment: 1 } },
+    });
+    if (consumed.count === 0) {
+      throw new UnprocessableEntityException(
+        'Plus de visites sur ton abonnement.',
+      );
+    }
+    const row = await tx.membership.findUnique({
+      where: { id: membership.id },
+    });
+    if (!row) {
+      throw new UnprocessableEntityException(
+        'Plus de visites sur ton abonnement.',
+      );
+    }
+    return this.toMembership(row);
   }
 
   private async consumeMembershipVisit(

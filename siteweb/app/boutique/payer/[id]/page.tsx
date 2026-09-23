@@ -17,7 +17,7 @@ export default async function BoutiquePayerPage({ params }: { params: Promise<{ 
   if (!product) notFound();
 
   return (
-    <main className="mx-auto grid max-w-[1100px] grid-cols-1 gap-8 px-6 py-16 lg:grid-cols-[0.85fr_1.15fr]">
+    <main className="mx-auto grid max-w-[1100px] grid-cols-1 gap-8 px-6 pb-24 pt-28 lg:grid-cols-[0.85fr_1.15fr]">
       <div>
         <Link href="/boutique" className="text-sm text-gray-500 hover:text-black">
           ← Boutique

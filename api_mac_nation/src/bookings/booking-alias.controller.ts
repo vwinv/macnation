@@ -39,11 +39,13 @@ export class BookingAliasController {
       address: text(payload.address),
       payNow: payload.payNow === true || payload.payNow === 'true',
       paymentMethod: text(payload.paymentMethod) || undefined,
+      useMembership:
+        payload.useMembership === true || payload.useMembership === 'true',
     };
 
     const created = await this.bookings.create(dto, client);
 
-    if (created.booking) {
+    if (created.booking && !created.usedMembership) {
       await this.notify.bookingCreated({
         name: created.booking.name,
         phone: created.booking.phone,
@@ -62,6 +64,8 @@ export class BookingAliasController {
       invoiceId: created.invoiceId || undefined,
       pendingId: created.pendingId,
       amount: created.amount,
+      usedMembership: created.usedMembership || undefined,
+      membership: created.membership,
       accountCreated: created.accountCreated || undefined,
       loginRequired: created.loginRequired || undefined,
     };

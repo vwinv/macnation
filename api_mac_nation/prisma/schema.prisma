@@ -105,6 +105,10 @@ model Client {
   invoices    Invoice[]
   loyalty     LoyaltyEvent[]
   memberships Membership[]
+  reviews        ProductReview[]
+  ratings        ProductRating[]
+  serviceReviews ServiceReview[]
+  serviceRatings ServiceRating[]
 }
 
 model Booking {
@@ -267,8 +271,35 @@ model Service {
   priceLabel  String?
   active      Boolean  @default(true)
   sortOrder   Int      @default(0)
+  reviews     ServiceReview[]
+  ratings     ServiceRating[]
 
   @@index([active, sortOrder])
+}
+
+model ServiceRating {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String
+  rating    Int
+
+  @@unique([serviceId, clientId])
+  @@index([serviceId, createdAt])
+}
+
+model ServiceReview {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String
+  comment   String
+
+  @@index([serviceId, createdAt])
 }
 
 model Product {
@@ -280,11 +311,39 @@ model Product {
   description String   @default("")
   category    String   @default("Coiffage")
   image       String   @default("/images/product-pomade.png")
+  images      String[] @default([])
   price       Int
   active      Boolean  @default(true)
   sortOrder   Int      @default(0)
+  reviews     ProductReview[]
+  ratings     ProductRating[]
 
   @@index([active, sortOrder])
+}
+
+model ProductRating {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String
+  rating    Int
+
+  @@unique([productId, clientId])
+  @@index([productId, createdAt])
+}
+
+model ProductReview {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  productId String
+  client    Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  clientId  String
+  comment   String
+
+  @@index([productId, createdAt])
 }
 
 model Plan {

@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import PageHero from "@/components/PageHero";
-import { articles } from "@/lib/data";
 import { pageImages } from "@/lib/assets";
+import { articles } from "@/lib/data";
 
 const cats = ["Toutes", "Lifestyle", "Guides et Conseils", "Nos actus", "Tendance"] as const;
 
@@ -20,8 +20,19 @@ export default function BlogPage() {
 
   return (
     <main>
-      <PageHero title="Dernières actualités" subtitle="Actus du salon, conseils grooming et coulisses à Dakar." image={pageImages.blog} />
-      <section className="mx-auto max-w-[1200px] px-6 pb-24">
+      <PageHero
+        title={
+          <>
+            Dernières <span className="!text-[#e0b12c]">actualités</span>
+          </>
+        }
+        image={pageImages.blog}
+        overlay="blur"
+      />
+      <section className="mx-auto max-w-[1200px] px-6 pb-24 pt-12 sm:pt-16">
+        <p className="mx-auto mb-16 max-w-[60ch] text-center text-sm leading-relaxed text-black sm:mb-20 md:mb-24 md:text-base">
+          Actus du salon, conseils grooming et coulisses à Dakar.
+        </p>
         <div className="mb-10 flex flex-wrap justify-center gap-2">
           {cats.map((c) => (
             <button

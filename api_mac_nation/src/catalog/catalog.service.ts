@@ -23,6 +23,7 @@ import {
 
 const DEFAULT_IMAGE = '/photos/people/people-cut.jpg';
 const DEFAULT_PRODUCT_IMAGE = '/images/product-pomade.png';
+const MAX_PRODUCT_PHOTOS = 4;
 const PRODUCT_PHOTO_MAX_BYTES = 5_000_000;
 const PRODUCT_PHOTO_NAME = /^[a-f0-9-]{36}\.(jpe?g|png|webp)$/i;
 
@@ -77,9 +78,22 @@ export type ProductInput = {
   description?: string;
   category?: string;
   image?: string;
+  images?: string[];
   price?: number;
   active?: boolean;
 };
+
+function normalizeProductImages(image?: string | null, extra?: string[] | null) {
+  const list = [image, ...(extra || [])]
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+  const unique: string[] = [];
+  for (const src of list) {
+    if (!unique.includes(src)) unique.push(src);
+    if (unique.length >= MAX_PRODUCT_PHOTOS) break;
+  }
+  return unique.length ? unique : [DEFAULT_PRODUCT_IMAGE];
+}
 
 export type PlanInput = {
   name: string;
@@ -284,16 +298,17 @@ export class CatalogService {
     description: string;
     category: string;
     image: string;
+    images?: string[];
     price: number;
   }) {
+    const images = normalizeProductImages(row.image, row.images);
     return {
       id: row.slug,
       name: row.name,
       description: row.description,
       category: row.category,
-      image: row.image?.startsWith('http')
-        ? row.image
-        : row.image || DEFAULT_PRODUCT_IMAGE,
+      image: images[0],
+      images,
       price: row.price,
     };
   }
@@ -305,17 +320,20 @@ export class CatalogService {
     description: string;
     category: string;
     image: string;
+    images?: string[];
     price: number;
     active: boolean;
     sortOrder: number;
   }) {
+    const images = normalizeProductImages(row.image, row.images);
     return {
       id: row.id,
       slug: row.slug,
       name: row.name,
       description: row.description,
       category: row.category,
-      image: row.image,
+      image: images[0],
+      images,
       price: row.price,
       active: row.active,
       sortOrder: row.sortOrder,
@@ -363,6 +381,15 @@ export class CatalogService {
     return rows.map((row) => this.toAdminProduct(row));
   }
 
+  async storeProductPhotos(files?: UploadedPhoto[]) {
+    const list = (files || []).slice(0, MAX_PRODUCT_PHOTOS);
+    const urls: string[] = [];
+    for (const file of list) {
+      urls.push(await this.storeProductPhoto(file));
+    }
+    return urls;
+  }
+
   async storeProductPhoto(file: UploadedPhoto) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Ajoute une photo.');
@@ -408,6 +435,7 @@ export class CatalogService {
   async createProduct(input: ProductInput) {
     const name = input.name.trim();
     const price = Math.max(0, Math.round(Number(input.price) || 0));
+    const images = normalizeProductImages(input.image, input.images);
     const last = await this.prisma.product.aggregate({ _max: { sortOrder: true } });
     const row = await this.prisma.product.create({
       data: {
@@ -415,7 +443,8 @@ export class CatalogService {
         name,
         description: (input.description || '').trim(),
         category: (input.category || 'Coiffage').trim() || 'Coiffage',
-        image: (input.image || DEFAULT_PRODUCT_IMAGE).trim() || DEFAULT_PRODUCT_IMAGE,
+        image: images[0],
+        images,
         price,
         sortOrder: (last._max.sortOrder ?? -1) + 1,
         active: input.active !== false,
@@ -428,9 +457,9 @@ export class CatalogService {
     const current = await this.findProductRow(id);
     if (!current) return null;
     const name = input.name?.trim();
-    const nextImage =
-      input.image != null
-        ? input.image.trim() || DEFAULT_PRODUCT_IMAGE
+    const nextImages =
+      input.images != null || input.image != null
+        ? normalizeProductImages(input.image, input.images ?? current.images)
         : undefined;
     const row = await this.prisma.product.update({
       where: { id: current.id },
@@ -442,15 +471,20 @@ export class CatalogService {
         ...(input.category != null
           ? { category: input.category.trim() || current.category }
           : {}),
-        ...(nextImage != null ? { image: nextImage } : {}),
+        ...(nextImages != null ? { image: nextImages[0], images: nextImages } : {}),
         ...(input.price !== undefined
           ? { price: Math.max(0, Math.round(Number(input.price) || 0)) }
           : {}),
         ...(input.active != null ? { active: input.active } : {}),
       },
     });
-    if (nextImage && nextImage !== current.image) {
-      await this.removeStoredProductPhoto(current.image);
+    if (nextImages) {
+      const previous = normalizeProductImages(current.image, current.images);
+      for (const src of previous) {
+        if (!nextImages.includes(src)) {
+          await this.removeStoredProductPhoto(src);
+        }
+      }
     }
     return this.toAdminProduct(row);
   }
@@ -645,6 +679,162 @@ export class CatalogService {
 
   reviews() {
     return REVIEWS;
+  }
+
+  async productReviews(id: string, clientId?: string) {
+    const product = await this.findProductRow(id, true);
+    if (!product) return null;
+    const [comments, ratings] = await Promise.all([
+      this.prisma.productReview.findMany({
+        where: { productId: product.id },
+        include: { client: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.productRating.findMany({
+        where: { productId: product.id },
+        include: { client: { select: { name: true } } },
+      }),
+    ]);
+    const ratingByClient = new Map(ratings.map((row) => [row.clientId, row.rating]));
+    const commented = new Set(comments.map((row) => row.clientId));
+    const list = [
+      ...comments.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        rating: ratingByClient.get(row.clientId) ?? null,
+        comment: row.comment,
+        name: row.client.name,
+      })),
+      ...ratings
+        .filter((row) => !commented.has(row.clientId))
+        .map((row) => ({
+          id: row.id,
+          createdAt: row.createdAt.toISOString(),
+          rating: row.rating,
+          comment: '',
+          name: row.client.name,
+        })),
+    ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const average =
+      ratings.length > 0
+        ? Math.round((ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length) * 10) / 10
+        : 0;
+    const mine = clientId ? ratings.find((row) => row.clientId === clientId) : undefined;
+    return {
+      reviews: list,
+      average,
+      count: list.length,
+      myRating: mine?.rating ?? null,
+    };
+  }
+
+  async addProductFeedback(
+    id: string,
+    clientId: string,
+    input: { rating: number | null; comment: string },
+  ) {
+    const product = await this.findProductRow(id, true);
+    if (!product) return null;
+    const comment = input.comment.trim().slice(0, 800);
+    const rating =
+      input.rating == null
+        ? null
+        : Math.min(5, Math.max(1, Math.round(Number(input.rating) || 0)));
+    const existing = await this.prisma.productRating.findUnique({
+      where: { productId_clientId: { productId: product.id, clientId } },
+    });
+    if (rating != null && existing && !comment) {
+      throw new BadRequestException('Tu as déjà laissé une note pour ce produit.');
+    }
+    if (rating != null && !existing) {
+      await this.prisma.productRating.create({
+        data: { productId: product.id, clientId, rating },
+      });
+    }
+    if (comment) {
+      await this.prisma.productReview.create({
+        data: { productId: product.id, clientId, comment },
+      });
+    }
+    return this.productReviews(id, clientId);
+  }
+
+  async serviceReviews(id: string, clientId?: string) {
+    const service = await this.findRow(id, true);
+    if (!service) return null;
+    const [comments, ratings] = await Promise.all([
+      this.prisma.serviceReview.findMany({
+        where: { serviceId: service.id },
+        include: { client: { select: { name: true } } },
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.serviceRating.findMany({
+        where: { serviceId: service.id },
+        include: { client: { select: { name: true } } },
+      }),
+    ]);
+    const ratingByClient = new Map(ratings.map((row) => [row.clientId, row.rating]));
+    const commented = new Set(comments.map((row) => row.clientId));
+    const list = [
+      ...comments.map((row) => ({
+        id: row.id,
+        createdAt: row.createdAt.toISOString(),
+        rating: ratingByClient.get(row.clientId) ?? null,
+        comment: row.comment,
+        name: row.client.name,
+      })),
+      ...ratings
+        .filter((row) => !commented.has(row.clientId))
+        .map((row) => ({
+          id: row.id,
+          createdAt: row.createdAt.toISOString(),
+          rating: row.rating,
+          comment: '',
+          name: row.client.name,
+        })),
+    ].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    const average =
+      ratings.length > 0
+        ? Math.round((ratings.reduce((sum, row) => sum + row.rating, 0) / ratings.length) * 10) / 10
+        : 0;
+    const mine = clientId ? ratings.find((row) => row.clientId === clientId) : undefined;
+    return {
+      reviews: list,
+      average,
+      count: list.length,
+      myRating: mine?.rating ?? null,
+    };
+  }
+
+  async addServiceFeedback(
+    id: string,
+    clientId: string,
+    input: { rating: number | null; comment: string },
+  ) {
+    const service = await this.findRow(id, true);
+    if (!service) return null;
+    const comment = input.comment.trim().slice(0, 800);
+    const rating =
+      input.rating == null
+        ? null
+        : Math.min(5, Math.max(1, Math.round(Number(input.rating) || 0)));
+    const existing = await this.prisma.serviceRating.findUnique({
+      where: { serviceId_clientId: { serviceId: service.id, clientId } },
+    });
+    if (rating != null && existing && !comment) {
+      throw new BadRequestException('Tu as déjà laissé une note pour cette prestation.');
+    }
+    if (rating != null && !existing) {
+      await this.prisma.serviceRating.create({
+        data: { serviceId: service.id, clientId, rating },
+      });
+    }
+    if (comment) {
+      await this.prisma.serviceReview.create({
+        data: { serviceId: service.id, clientId, comment },
+      });
+    }
+    return this.serviceReviews(id, clientId);
   }
 
   jobs() {

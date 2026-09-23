@@ -91,8 +91,8 @@ export default function LoginPopup({ open, phone, accountCreated, onClose, onLog
         </div>
         <p className="mt-2 text-sm text-gray-500">
           {accountCreated
-            ? "Ton compte est créé. Le mot de passe arrive par SMS et email. Connecte-toi pour payer."
-            : "Connecte-toi pour payer. Sans compte reconnu, le paiement ne peut pas continuer."}
+            ? "Ton compte est créé. Le mot de passe a été envoyé par email. Connecte-toi pour payer."
+            : "Connecte-toi pour payer, puis tu continues vers PayTech."}
         </p>
         <SocialLogin onError={setError} onBusy={setSending} onSuccess={onLoggedIn} />
         {error ? <p className="mt-3 text-sm text-red-400">{error}</p> : null}
@@ -176,7 +176,7 @@ export default function LoginPopup({ open, phone, accountCreated, onClose, onLog
             {mode === "register" ? (
               <span className="text-xs font-normal text-gray-500">Au moins 8 caractères.</span>
             ) : accountCreated ? (
-              <span className="text-xs font-normal text-gray-500">Celui reçu par SMS et email.</span>
+              <span className="text-xs font-normal text-gray-500">Celui reçu par email.</span>
             ) : null}
           </label>
           <button

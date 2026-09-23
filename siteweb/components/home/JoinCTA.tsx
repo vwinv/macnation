@@ -5,9 +5,9 @@ import Reveal from "@/components/Reveal";
 import { people } from "@/lib/assets";
 
 const items = [
-  { href: "/#equipe", kicker: "En tant que barber", title: "Rejoindre l'équipe" },
-  { href: "/rendez-vous", kicker: "En tant que client", title: "Prendre rendez-vous" },
-  { href: "/abonnements", kicker: "En tant que membre", title: "Prendre un abonnement" },
+  { href: "/#equipe", kicker: "En tant que barber", title: "Rejoindre l'équipe", dark: true },
+  { href: "/rendez-vous", kicker: "En tant que client", title: "Prendre rendez-vous", dark: false },
+  { href: "/abonnements", kicker: "En tant que membre", title: "Prendre un abonnement", dark: true },
 ];
 
 export default function JoinCTA() {
@@ -27,14 +27,26 @@ export default function JoinCTA() {
               <div className="flex w-full flex-col items-center justify-center rounded-3xl p-2">
                 <Link
                   href={item.href}
-                  className="flex h-35 w-full items-center justify-between gap-y-4 rounded-2xl bg-[#e0b12c] p-6 text-black transition-all duration-300 hover:bg-[#f0c43a] sm:w-100 lg:h-30 lg:w-[25vw]"
+                  className={`flex h-35 w-full items-center justify-between gap-y-4 rounded-2xl p-6 transition-all duration-300 sm:w-100 lg:h-30 lg:w-[25vw] ${
+                    item.dark
+                      ? "bg-black text-white hover:bg-gray-900"
+                      : "bg-[#e0b12c] text-black hover:bg-[#f0c43a]"
+                  }`}
                 >
                   <div className="mr-1 flex flex-col justify-center gap-y-1 sm:mr-6">
-                    <span className="line-clamp-2 text-md font-semibold text-black/70">{item.kicker}</span>
-                    <b className="line-clamp-2 text-xl font-bold text-black">{item.title}</b>
+                    <span className={`line-clamp-2 text-md font-semibold ${item.dark ? "text-white/70" : "text-black/70"}`}>
+                      {item.kicker}
+                    </span>
+                    <b className={`line-clamp-2 text-xl font-bold ${item.dark ? "text-white" : "text-black"}`}>
+                      {item.title}
+                    </b>
                   </div>
-                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-black">
-                    <ArrowRight size={16} className="text-[#e0b12c]" />
+                  <span
+                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+                      item.dark ? "bg-[#e0b12c]" : "bg-black"
+                    }`}
+                  >
+                    <ArrowRight size={16} className={item.dark ? "text-black" : "text-[#e0b12c]"} />
                   </span>
                 </Link>
               </div>

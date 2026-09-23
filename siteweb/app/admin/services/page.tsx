@@ -25,10 +25,13 @@ type AdminProduct = {
   description: string;
   category: string;
   image: string;
+  images?: string[];
   price: number;
   active: boolean;
   sortOrder: number;
 };
+
+type ProductPhoto = { url: string; file?: File };
 
 const SERVICE_CATEGORIES = ["Signature", "Soins", "Enfants", "Domicile", "Autre"];
 const PRODUCT_CATEGORIES = ["Coiffage", "Barbe", "Soin", "Coffret", "Autre"];
@@ -89,6 +92,7 @@ export default function AdminServicesPage() {
   const [productForm, setProductForm] = useState(EMPTY_PRODUCT);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [photoPreview, setPhotoPreview] = useState("");
+  const [productPhotos, setProductPhotos] = useState<ProductPhoto[]>([]);
   const [editingService, setEditingService] = useState<AdminService | null>(null);
   const [editingProduct, setEditingProduct] = useState<AdminProduct | null>(null);
   const [editingPlan, setEditingPlan] = useState<AdminPlan | null>(null);
@@ -160,11 +164,17 @@ export default function AdminServicesPage() {
     setServiceOpen(true);
   }
 
+  function revokeProductBlobs(items: ProductPhoto[]) {
+    for (const item of items) {
+      if (item.url.startsWith("blob:")) URL.revokeObjectURL(item.url);
+    }
+  }
+
   function openNewProduct() {
     setEditingProduct(null);
     setProductForm(EMPTY_PRODUCT);
-    setPhotoFile(null);
-    setPhotoPreview("");
+    revokeProductBlobs(productPhotos);
+    setProductPhotos([]);
     setError("");
     setProductOpen(true);
   }
@@ -177,10 +187,38 @@ export default function AdminServicesPage() {
       price: String(item.price),
       description: item.description,
     });
-    setPhotoFile(null);
-    setPhotoPreview(item.image);
+    revokeProductBlobs(productPhotos);
+    const existing = (item.images?.length ? item.images : [item.image]).filter(Boolean).slice(0, 4);
+    setProductPhotos(existing.map((url) => ({ url })));
     setError("");
     setProductOpen(true);
+  }
+
+  function addProductPhotos(files: FileList | File[] | null) {
+    if (!files?.length) return;
+    const room = 4 - productPhotos.length;
+    if (room <= 0) {
+      setError("Maximum 4 photos par produit.");
+      return;
+    }
+    const next: ProductPhoto[] = [];
+    for (const file of Array.from(files).slice(0, room)) {
+      if (file.size > 5_000_000) {
+        setError("Photo trop lourde. Maximum 5 Mo.");
+        return;
+      }
+      next.push({ url: URL.createObjectURL(file), file });
+    }
+    setError("");
+    setProductPhotos((current) => [...current, ...next].slice(0, 4));
+  }
+
+  function removeProductPhoto(index: number) {
+    setProductPhotos((current) => {
+      const item = current[index];
+      if (item?.url.startsWith("blob:")) URL.revokeObjectURL(item.url);
+      return current.filter((_, i) => i !== index);
+    });
   }
 
   function onPhotoChange(file: File | null) {
@@ -238,7 +276,10 @@ export default function AdminServicesPage() {
       payload.append("category", productForm.category);
       payload.append("description", productForm.description);
       payload.append("price", productForm.price);
-      if (photoFile) payload.append("photo", photoFile);
+      payload.append("images", JSON.stringify(productPhotos.filter((item) => !item.file).map((item) => item.url)));
+      for (const item of productPhotos) {
+        if (item.file) payload.append("photos", item.file);
+      }
       const res = await fetch(editingProduct ? `/api/admin/products/${editingProduct.id}` : "/api/admin/products", {
         method: editingProduct ? "PATCH" : "POST",
         body: payload,
@@ -248,7 +289,8 @@ export default function AdminServicesPage() {
         setError(json?.error || "Enregistrement impossible.");
         return;
       }
-      if (photoPreview.startsWith("blob:")) URL.revokeObjectURL(photoPreview);
+      revokeProductBlobs(productPhotos);
+      setProductPhotos([]);
       setProductOpen(false);
       await load();
     } finally {
@@ -662,20 +704,36 @@ export default function AdminServicesPage() {
               </label>
             </div>
             <label className="mt-3 flex flex-col gap-2 text-sm text-black">
-              Photo
+              Photos
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-                onChange={(e) => onPhotoChange(e.target.files?.[0] || null)}
-                className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-[#e0b12c] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-black"
+                multiple
+                disabled={productPhotos.length >= 4}
+                onChange={(e) => {
+                  addProductPhotos(e.target.files);
+                  e.target.value = "";
+                }}
+                className="rounded-lg bg-gray-900 px-3 py-2 text-sm text-gray-600 file:mr-3 file:rounded-md file:border-0 file:bg-[#e0b12c] file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-black disabled:opacity-40"
               />
-              <span className="text-xs text-gray-500">JPG, PNG ou WEBP · 5 Mo max.</span>
+              <span className="text-xs text-gray-500">Jusqu’à 4 photos · JPG, PNG ou WEBP · 5 Mo max.</span>
             </label>
-            {photoPreview ? (
-              <div className="relative mt-3 aspect-square w-32 overflow-hidden rounded-xl bg-black ring-1 ring-black/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photoPreview} alt="" className="h-full w-full object-cover" />
-              </div>
+            {productPhotos.length ? (
+              <ul className="mt-3 grid grid-cols-4 gap-2">
+                {productPhotos.map((item, index) => (
+                  <li key={`${item.url}-${index}`} className="relative aspect-square overflow-hidden rounded-xl bg-black ring-1 ring-black/10">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={item.url} alt="" className="h-full w-full object-cover" />
+                    <button
+                      type="button"
+                      onClick={() => removeProductPhoto(index)}
+                      className="absolute right-1 top-1 rounded-md bg-black/70 px-1.5 text-[10px] text-white"
+                    >
+                      Retirer
+                    </button>
+                  </li>
+                ))}
+              </ul>
             ) : null}
             <label className="mt-3 flex flex-col gap-2 text-sm text-black">
               Description

@@ -36,11 +36,20 @@ export default function BrandPage() {
   return (
     <main>
       <PageHero
-        kicker="MAC NATION born and raised in Dakar"
-        title="Une vision dakaroise du grooming moderne."
-        subtitle="Plus qu'une coupe, une nation. Un salon, une boutique, des abonnements. Tout au même endroit."
+        title={
+          <>
+            Une vision dakaroise du grooming <span className="!text-[#e0b12c]">moderne.</span>
+          </>
+        }
         image={pageImages.brand}
+        overlay="blur"
       />
+
+      <section className="mx-auto max-w-[1200px] px-6 pt-12 sm:pt-16">
+        <p className="mx-auto mb-10 max-w-[60ch] text-center text-sm leading-relaxed text-black sm:mb-14 md:text-base">
+          Plus qu&apos;une coupe, une nation. Un salon, une boutique, des abonnements. Tout au même endroit.
+        </p>
+      </section>
 
       <section className="mx-auto grid max-w-[1200px] grid-cols-2 gap-3 px-6 pb-10 md:grid-cols-4">
         {mosaic.map((shot, i) => (

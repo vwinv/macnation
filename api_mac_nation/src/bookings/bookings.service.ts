@@ -182,6 +182,73 @@ export class BookingsService {
     }
     const clientId = ensured.id || client?.id;
     const accountCreated = Boolean(ensured.generatedPassword);
+    if (dto.useMembership && !loggedIn) {
+      throw new UnprocessableEntityException(
+        'Connecte-toi pour utiliser ton abonnement.',
+      );
+    }
+    const membership =
+      dto.useMembership && client?.id
+        ? await this.store.activeMembershipFor(client.id)
+        : null;
+    if (dto.useMembership && !membership) {
+      throw new UnprocessableEntityException(
+        'Plus de visites sur ton abonnement.',
+      );
+    }
+
+    if (membership && !quoted) {
+      const created = await this.store.createBooking({
+        name,
+        phone,
+        email,
+        serviceId: service.id,
+        serviceName: service.name,
+        dateIso,
+        dateLabel,
+        time,
+        durationMin,
+        place,
+        address,
+        amount: 0,
+        paymentStatus: 'paid',
+        paymentMethod: 'autre',
+        items: [{ name: `${service.name} · Abonnement ${membership.planName}`, qty: 1, unitPrice: 0 }],
+        note: `Abonnement ${membership.planName} · ${note}`,
+        clientId: client?.id || clientId,
+        confirmed: true,
+        consumeMembership: true,
+      });
+      try {
+        await this.notify.bookingCreated({
+          name,
+          phone,
+          email,
+          serviceName: service.name,
+          dateLabel,
+          time,
+          place,
+          address,
+        });
+      } catch {
+        /* mail best-effort */
+      }
+      return {
+        ok: true as const,
+        booking: created.booking,
+        invoiceId: created.invoiceId,
+        amount: 0,
+        paid: true,
+        usedMembership: true,
+        membership: {
+          planName: membership.planName,
+          visitsLeft: Math.max(0, membership.visitsTotal - membership.visitsUsed - 1),
+          visitsTotal: membership.visitsTotal,
+        },
+        accountCreated,
+        loginRequired: false,
+      };
+    }
 
     if (payNow && amount > 0) {
       const created = await this.store.createBooking({

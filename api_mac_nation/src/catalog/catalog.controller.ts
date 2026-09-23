@@ -1,5 +1,20 @@
-import { Controller, Get, Header, NotFoundException, Param, Res } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  NotFoundException,
+  Param,
+  Post,
+  Res,
+  UnprocessableEntityException,
+  UseGuards,
+} from '@nestjs/common';
 import type { Response } from 'express';
+import { AuthGuard, OptionalAuthGuard } from '../auth/auth.guard';
+import { CurrentClient } from '../auth/current-client.decorator';
+import type { Client } from '../store/store.types';
 import { CatalogService } from './catalog.service';
 
 @Controller('catalog')
@@ -36,6 +51,34 @@ export class CatalogController {
     return this.catalog.services();
   }
 
+  @Get('services/:id/reviews')
+  @UseGuards(OptionalAuthGuard)
+  async serviceReviews(@Param('id') id: string, @CurrentClient() client?: Client) {
+    const item = await this.catalog.serviceReviews(id, client?.id);
+    if (!item) throw new NotFoundException('Prestation introuvable.');
+    return item;
+  }
+
+  @Post('services/:id/reviews')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async createServiceReview(
+    @Param('id') id: string,
+    @CurrentClient() client: Client,
+    @Body() body: { rating?: unknown; comment?: unknown },
+  ) {
+    const rawRating = Math.round(Number(body?.rating));
+    const rating =
+      Number.isFinite(rawRating) && rawRating >= 1 && rawRating <= 5 ? rawRating : null;
+    const comment = typeof body?.comment === 'string' ? body.comment : '';
+    if (rating == null && !comment.trim()) {
+      throw new UnprocessableEntityException('Ajoute une note ou un commentaire.');
+    }
+    const item = await this.catalog.addServiceFeedback(id, client.id, { rating, comment });
+    if (!item) throw new NotFoundException('Prestation introuvable.');
+    return item;
+  }
+
   @Get('services/:id')
   async service(@Param('id') id: string) {
     const item = await this.catalog.service(id);
@@ -46,6 +89,34 @@ export class CatalogController {
   @Get('products')
   products() {
     return this.catalog.products();
+  }
+
+  @Get('products/:id/reviews')
+  @UseGuards(OptionalAuthGuard)
+  async productReviews(@Param('id') id: string, @CurrentClient() client?: Client) {
+    const item = await this.catalog.productReviews(id, client?.id);
+    if (!item) throw new NotFoundException('Produit introuvable.');
+    return item;
+  }
+
+  @Post('products/:id/reviews')
+  @HttpCode(200)
+  @UseGuards(AuthGuard)
+  async createProductReview(
+    @Param('id') id: string,
+    @CurrentClient() client: Client,
+    @Body() body: { rating?: unknown; comment?: unknown },
+  ) {
+    const rawRating = Math.round(Number(body?.rating));
+    const rating =
+      Number.isFinite(rawRating) && rawRating >= 1 && rawRating <= 5 ? rawRating : null;
+    const comment = typeof body?.comment === 'string' ? body.comment : '';
+    if (rating == null && !comment.trim()) {
+      throw new UnprocessableEntityException('Ajoute une note ou un commentaire.');
+    }
+    const item = await this.catalog.addProductFeedback(id, client.id, { rating, comment });
+    if (!item) throw new NotFoundException('Produit introuvable.');
+    return item;
   }
 
   @Get('products/:id')
