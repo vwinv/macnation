@@ -19,7 +19,7 @@ export default async function PaiementRetourPage({
   const pendingId = first(sp.pending);
   let invoice = invoiceId ? await getPublicInvoice(invoiceId) : null;
   let paid = invoice?.status === "payee";
-  let kind = invoice?.kind;
+  let kind: string | undefined = invoice?.kind;
   let booking: { dateLabel: string; time: string; serviceName: string } | undefined;
 
   if (pendingId && !paid) {
