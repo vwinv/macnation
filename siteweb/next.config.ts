@@ -1,4 +1,8 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { NextConfig } from "next";
+
+const appRoot = path.dirname(fileURLToPath(import.meta.url));
 
 const apiOrigin = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(
   /\/$/,
@@ -6,8 +10,9 @@ const apiOrigin = (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "ht
 );
 
 const nextConfig: NextConfig = {
+  outputFileTracingRoot: appRoot,
   turbopack: {
-    root: process.cwd(),
+    root: appRoot,
   },
   images: {
     remotePatterns: [
