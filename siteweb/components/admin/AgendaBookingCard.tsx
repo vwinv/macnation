@@ -101,12 +101,12 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
           <p className="text-xs tracking-[0.16em] text-gray-500">SUIVI DU RDV</p>
           <div className="mt-2 flex flex-wrap gap-2">
             {item.status !== "confirme" && item.status !== "annule" ? (
-              <button type="button" onClick={() => onStatus(item.id, "confirme")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+              <button type="button" onClick={() => onStatus(item.id, "confirme")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                 Confirmer (client vient)
               </button>
             ) : null}
             {item.status !== "termine" && item.status !== "annule" ? (
-              <button type="button" onClick={() => onStatus(item.id, "termine")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+              <button type="button" onClick={() => onStatus(item.id, "termine")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                 Prestation faite
               </button>
             ) : null}
@@ -120,11 +120,11 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
               </button>
             ) : null}
             {item.invoiceId ? (
-              <Link href={`/admin/factures/${item.invoiceId}`} className="flex h-9 items-center rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+              <Link href={`/admin/factures/${item.invoiceId}`} className="flex h-9 items-center rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                 Voir la facture
               </Link>
             ) : (
-              <button type="button" onClick={() => onOpenInvoice(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+              <button type="button" onClick={() => onOpenInvoice(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                 Créer la facture
               </button>
             )}
@@ -140,16 +140,16 @@ export default function AgendaBookingCard({ item, busy, onStatus, onOpenInvoice,
             <p className="text-xs tracking-[0.16em] text-gray-500">ENCAISSER AU SALON</p>
             <p className="mt-1 text-xs text-gray-500">Le client a déjà payé ici : tu marques juste le moyen.</p>
             <div className="mt-2 flex flex-wrap gap-2">
-              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "especes")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50">
+              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "especes")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50">
                 Espèces reçues
               </button>
-              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "wave")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50">
+              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "wave")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50">
                 Wave reçu
               </button>
-              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "orange")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50">
+              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "orange")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50">
                 Orange reçu
               </button>
-              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "free")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50">
+              <button type="button" disabled={busy.startsWith(item.id)} onClick={() => onEncaisser(item, "free")} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50">
                 Free reçu
               </button>
               <button type="button" disabled={Boolean(busy)} onClick={() => onPayerMobile(item)} className="btn-gold h-9 cursor-pointer rounded-lg px-3 text-sm font-medium disabled:opacity-50">

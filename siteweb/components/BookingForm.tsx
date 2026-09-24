@@ -544,7 +544,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                             ? "cursor-not-allowed bg-gray-900 text-gray-600 opacity-50 ring-1 ring-black/10"
                             : useMembership
                               ? "btn-gold cursor-pointer"
-                              : "cursor-pointer bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                              : "cursor-pointer bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-200"
                         }`}
                       >
                         <span className="block text-sm font-medium">Mon abonnement</span>
@@ -569,7 +569,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                           setPayNow(opt.id === "now");
                         }}
                         className={`cursor-pointer rounded-xl px-4 py-3 text-left transition-colors ${
-                          !useMembership && (opt.id === "now") === payNow ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                          !useMembership && (opt.id === "now") === payNow ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-200"
                         }`}
                       >
                         <span className="block text-sm font-medium">{opt.label}</span>
@@ -596,7 +596,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                       type="button"
                       onClick={() => setPlace(opt.id)}
                       className={`cursor-pointer rounded-xl px-4 py-3 text-left transition-colors ${
-                        place === opt.id ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                        place === opt.id ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-200"
                       }`}
                     >
                       <span className="block text-sm font-medium">{opt.label}</span>
@@ -677,7 +677,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                       type="button"
                       aria-label="Mois précédent"
                       onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
                     >
                       <CaretLeft size={16} />
                     </button>
@@ -685,7 +685,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                       type="button"
                       aria-label="Mois suivant"
                       onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+                      className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
                     >
                       <CaretRight size={16} />
                     </button>
@@ -757,7 +757,7 @@ export default function BookingForm({ initialServiceId }: { initialServiceId?: s
                             setError("");
                           }}
                           className={`h-10 cursor-pointer rounded-lg px-2 text-sm font-medium transition-colors ${
-                            time === slot.time ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-800"
+                            time === slot.time ? "btn-black" : "bg-gray-900 text-gray-600 ring-1 ring-black/10 hover:bg-gray-200"
                           }`}
                         >
                           {slot.label || slot.time}

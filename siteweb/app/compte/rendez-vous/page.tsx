@@ -184,7 +184,7 @@ export default function CompteRendezVousPage() {
                       <button
                         type="button"
                         onClick={() => setViewBooking(item)}
-                        className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-800"
+                        className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-200"
                       >
                         Voir le devis
                       </button>

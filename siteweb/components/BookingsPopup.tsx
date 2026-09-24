@@ -228,7 +228,7 @@ export default function BookingsPopup({ open, onClose }: { open: boolean; onClos
                 <button
                   type="button"
                   onClick={() => setViewBooking(item)}
-                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-800"
+                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-200"
                 >
                   Voir le devis
                 </button>
@@ -305,7 +305,7 @@ export default function BookingsPopup({ open, onClose }: { open: boolean; onClos
             type="button"
             aria-label="Fermer"
             onClick={onClose}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
           >
             <X size={16} />
           </button>
@@ -362,7 +362,7 @@ export default function BookingsPopup({ open, onClose }: { open: boolean; onClos
                   type="button"
                   aria-label="Mois précédent"
                   onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
                 >
                   <CaretLeft size={16} />
                 </button>
@@ -373,7 +373,7 @@ export default function BookingsPopup({ open, onClose }: { open: boolean; onClos
                     setCursor(new Date(now.getFullYear(), now.getMonth(), 1));
                     setSelected(new Date(now.getFullYear(), now.getMonth(), now.getDate()));
                   }}
-                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-gray-600 hover:bg-gray-800"
+                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-gray-600 hover:bg-gray-200"
                 >
                   Aujourd’hui
                 </button>
@@ -381,7 +381,7 @@ export default function BookingsPopup({ open, onClose }: { open: boolean; onClos
                   type="button"
                   aria-label="Mois suivant"
                   onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+                  className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
                 >
                   <CaretRight size={16} />
                 </button>

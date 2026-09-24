@@ -489,7 +489,7 @@ export default function AdminServicesPage() {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <button type="button" disabled={Boolean(busy)} onClick={() => openEditService(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+                  <button type="button" disabled={Boolean(busy)} onClick={() => openEditService(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                     Modifier
                   </button>
                   {item.active ? (
@@ -497,7 +497,7 @@ export default function AdminServicesPage() {
                       Retirer
                     </button>
                   ) : (
-                    <button type="button" disabled={busy === item.id} onClick={() => void setServiceActive(item, true)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+                    <button type="button" disabled={busy === item.id} onClick={() => void setServiceActive(item, true)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                       Réactiver
                     </button>
                   )}
@@ -532,7 +532,7 @@ export default function AdminServicesPage() {
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" disabled={Boolean(busy)} onClick={() => openEditProduct(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+                    <button type="button" disabled={Boolean(busy)} onClick={() => openEditProduct(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                       Modifier
                     </button>
                     {item.active ? (
@@ -540,7 +540,7 @@ export default function AdminServicesPage() {
                         Retirer
                       </button>
                     ) : (
-                      <button type="button" disabled={busy === item.id} onClick={() => void setProductActive(item, true)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+                      <button type="button" disabled={busy === item.id} onClick={() => void setProductActive(item, true)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                         Réactiver
                       </button>
                     )}
@@ -579,7 +579,7 @@ export default function AdminServicesPage() {
                     ) : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" disabled={Boolean(busy)} onClick={() => openEditPlan(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+                    <button type="button" disabled={Boolean(busy)} onClick={() => openEditPlan(item)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                       Modifier
                     </button>
                     {item.active ? (
@@ -587,7 +587,7 @@ export default function AdminServicesPage() {
                         Retirer
                       </button>
                     ) : (
-                      <button type="button" disabled={busy === item.id} onClick={() => void setPlanActive(item, true)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-800">
+                      <button type="button" disabled={busy === item.id} onClick={() => void setPlanActive(item, true)} className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-sm text-black ring-1 ring-black/10 hover:bg-gray-200">
                         Réactiver
                       </button>
                     )}

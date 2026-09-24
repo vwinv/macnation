@@ -226,7 +226,7 @@ export default function HoursSettingsModal({ onClose }: { onClose: () => void })
               placeholder="Note (optionnel)"
               className="h-10 rounded-lg bg-gray-900 px-3 text-sm text-black outline-none ring-1 ring-black/10"
             />
-            <button type="submit" disabled={!dateIso || busy === "closed"} className="h-10 cursor-pointer rounded-lg bg-gray-800 px-4 text-sm text-black ring-1 ring-black/10 disabled:opacity-50">
+            <button type="submit" disabled={!dateIso || busy === "closed"} className="h-10 cursor-pointer rounded-lg bg-gray-200 px-4 text-sm text-black ring-1 ring-black/10 disabled:opacity-50">
               Ajouter
             </button>
           </div>

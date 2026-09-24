@@ -206,7 +206,7 @@ export default function SoftPay({ invoiceId, pendingId, amount, name, phone, ema
               setError("");
             }}
             className={`cursor-pointer rounded-xl px-4 py-3 text-left ${
-              method === item.id ? "btn-gold" : "bg-gray-900 text-black ring-1 ring-black/10 hover:bg-gray-800"
+              method === item.id ? "btn-gold" : "bg-gray-900 text-black ring-1 ring-black/10 hover:bg-gray-200"
             }`}
           >
             <span className="block text-sm font-medium">{item.label}</span>

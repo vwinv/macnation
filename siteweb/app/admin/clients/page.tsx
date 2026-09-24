@@ -132,7 +132,7 @@ export default function AdminClientsPage() {
                   type="button"
                   disabled={busy === client.id}
                   onClick={() => void adjust(client.id, { pointsDelta: 10 })}
-                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50"
+                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50"
                 >
                   +10 pts
                 </button>
@@ -140,7 +140,7 @@ export default function AdminClientsPage() {
                   type="button"
                   disabled={busy === client.id || client.points < 10}
                   onClick={() => void adjust(client.id, { pointsDelta: -10 })}
-                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50"
+                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50"
                 >
                   −10 pts
                 </button>
@@ -148,7 +148,7 @@ export default function AdminClientsPage() {
                   type="button"
                   disabled={busy === client.id}
                   onClick={() => void adjust(client.id, { creditDelta: 1000 })}
-                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50"
+                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50"
                 >
                   +1 000 F
                 </button>
@@ -156,7 +156,7 @@ export default function AdminClientsPage() {
                   type="button"
                   disabled={busy === client.id || client.creditFcfa < 1000}
                   onClick={() => void adjust(client.id, { creditDelta: -1000 })}
-                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-50"
+                  className="h-9 cursor-pointer rounded-lg bg-gray-900 px-3 text-xs text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-50"
                 >
                   −1 000 F
                 </button>

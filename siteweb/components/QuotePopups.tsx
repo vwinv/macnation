@@ -52,7 +52,7 @@ function Shell({
             type="button"
             aria-label="Fermer"
             onClick={onClose}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
           >
             <X size={16} />
           </button>
@@ -161,7 +161,7 @@ export function QuoteConfirmPopup({
           type="button"
           disabled={busy !== ""}
           onClick={onPaySalon}
-          className="h-12 cursor-pointer rounded-lg bg-gray-900 text-sm font-medium text-black ring-1 ring-black/10 hover:bg-gray-800 disabled:opacity-60"
+          className="h-12 cursor-pointer rounded-lg bg-gray-900 text-sm font-medium text-black ring-1 ring-black/10 hover:bg-gray-200 disabled:opacity-60"
         >
           {busy === "salon" ? "Enregistrement…" : "Payer au salon"}
         </button>

@@ -123,7 +123,7 @@ export default function ComptePage() {
               type="button"
               aria-label="Modifier le profil"
               onClick={() => setProfileOpen(true)}
-              className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black ring-1 ring-black/10 hover:bg-gray-800"
+              className="inline-flex h-10 w-10 shrink-0 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black ring-1 ring-black/10 hover:bg-gray-200"
             >
               <PencilSimple size={18} weight="bold" />
             </button>

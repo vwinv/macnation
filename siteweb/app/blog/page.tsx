@@ -40,7 +40,7 @@ export default function BlogPage() {
               type="button"
               onClick={() => setCat(c)}
               className={`cursor-pointer rounded-lg px-4 py-2 text-sm ${
-                cat === c ? "bg-white text-gray-950" : "bg-gray-900 text-gray-600 hover:bg-gray-800"
+                cat === c ? "bg-white text-gray-950" : "bg-gray-900 text-gray-600 hover:bg-gray-200"
               }`}
             >
               {c}

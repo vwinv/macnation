@@ -138,7 +138,7 @@ export default function AdminQuotePopup({
             type="button"
             aria-label="Fermer"
             onClick={onClose}
-            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-800"
+            className="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg bg-gray-900 text-black hover:bg-gray-200"
           >
             <X size={16} />
           </button>
