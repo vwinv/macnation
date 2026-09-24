@@ -164,6 +164,20 @@ export class StoreService {
     return row ? this.toClient(row) : undefined;
   }
 
+  async listPublicClients() {
+    const rows = await this.prisma.client.findMany({
+      orderBy: { name: 'asc' },
+    });
+    return rows
+      .filter((row) => !row.phone.startsWith(PENDING_PHONE_PREFIX))
+      .map((row) => this.publicClient(this.toClient(row)));
+  }
+
+  async getPublicClient(id: string) {
+    const row = await this.prisma.client.findUnique({ where: { id } });
+    return row ? this.publicClient(this.toClient(row)) : null;
+  }
+
   async createClient(input: {
     name: string;
     phone: string;
@@ -1142,6 +1156,79 @@ export class StoreService {
     });
   }
 
+  async createWalkInMembership(input: {
+    clientName: string;
+    clientPhone: string;
+    clientEmail?: string;
+    clientId?: string;
+    planId: string;
+    paymentMethod?: PaymentMethod;
+  }) {
+    const name = input.clientName.trim();
+    const phone = normalizePhone(input.clientPhone);
+    const email = (input.clientEmail || '').trim();
+    if (!name || !phone) {
+      throw new UnprocessableEntityException('Nom et téléphone sont requis.');
+    }
+    if (!isSnMobile(phone)) {
+      throw new UnprocessableEntityException(
+        'Indiquez un numéro sénégalais valide (77, 78, 76, 70…).',
+      );
+    }
+    const plan = await this.prisma.plan.findFirst({
+      where: {
+        OR: [{ slug: input.planId }, { id: input.planId }],
+        active: true,
+      },
+    });
+    if (!plan) throw new NotFoundException('Abonnement introuvable.');
+
+    const ensured = await this.ensurePublicClient({
+      clientId: input.clientId,
+      name,
+      phone,
+      email,
+    });
+    if (!ensured.id) {
+      throw new UnprocessableEntityException('Compte client impossible.');
+    }
+
+    const invoice = await this.createWalkInInvoice({
+      clientName: name,
+      clientPhone: phone,
+      clientEmail: email,
+      items: [
+        {
+          name: `Abonnement ${plan.name} · ${plan.period}`,
+          qty: 1,
+          unitPrice: plan.price,
+        },
+      ],
+      note: `Abonnement ${plan.name} · 1 mois`,
+      kind: 'abonnement',
+      clientId: ensured.id,
+      planId: plan.slug,
+    });
+
+    if (input.paymentMethod && invoice.amount > 0) {
+      const paid = await this.markInvoicePaid({
+        invoiceId: invoice.id,
+        method: input.paymentMethod,
+      });
+      return {
+        invoice: paid?.invoice || invoice,
+        membership: paid?.membership || null,
+        generatedPassword: ensured.generatedPassword,
+      };
+    }
+
+    return {
+      invoice,
+      membership: null,
+      generatedPassword: ensured.generatedPassword,
+    };
+  }
+
   async updateInvoice(
     id: string,
     patch: {
@@ -1149,6 +1236,7 @@ export class StoreService {
       status?: InvoiceStatus;
       note?: string;
       amount?: number;
+      delivered?: boolean;
     },
   ) {
     return this.prisma.$transaction(async (tx) => {
@@ -1190,6 +1278,9 @@ export class StoreService {
           amount,
           ...(patch.status ? { status: patch.status } : {}),
           ...(patch.note !== undefined ? { note: patch.note } : {}),
+          ...(typeof patch.delivered === 'boolean'
+            ? { deliveredAt: patch.delivered ? current.deliveredAt ?? new Date() : null }
+            : {}),
         },
       });
       if (row.bookingId) {
@@ -2069,6 +2160,7 @@ export class StoreService {
       kind: row.kind ?? undefined,
       clientId: row.clientId ?? undefined,
       planId: row.planId ?? undefined,
+      deliveredAt: row.deliveredAt?.toISOString(),
     };
   }
 

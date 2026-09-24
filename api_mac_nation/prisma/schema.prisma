@@ -158,6 +158,7 @@ model Invoice {
   planId        String?
   paydunyaToken String?
   paydunyaUrl   String?
+  deliveredAt   DateTime?
   membership    Membership?
   payments      Payment[]
 }

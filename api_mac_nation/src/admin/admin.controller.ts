@@ -32,8 +32,10 @@ import {
   type ExpenseCategory,
 } from '../common/money';
 import { NotifyService } from '../notify/notify.service';
+import { isSnMobile, normalizePhone } from '../common/phone';
 import { paytechException } from '../paytech/paytech.errors';
 import { PaytechService } from '../paytech/paytech.service';
+import { BookingsService } from '../bookings/bookings.service';
 import { StoreService } from '../store/store.service';
 import type {
   ApplicationStatus,
@@ -195,6 +197,7 @@ export class AdminController {
     private readonly paytech: PaytechService,
     private readonly catalog: CatalogService,
     private readonly notify: NotifyService,
+    private readonly bookings: BookingsService,
   ) {}
 
   @Get('salon')
@@ -208,8 +211,77 @@ export class AdminController {
   }
 
   @Get('bookings')
-  async bookings() {
+  async listBookings() {
     return { bookings: await this.store.listBookings() };
+  }
+
+  @Get('bookings/slots')
+  walkInSlots(@Query('date') date: string, @Query('service') service?: string) {
+    return this.bookings.slots(date || '', service, { ignoreLead: true });
+  }
+
+  @Post('bookings')
+  @HttpCode(200)
+  async createWalkInBooking(@Body() body: unknown) {
+    const payload = (body || {}) as {
+      name?: unknown;
+      phone?: unknown;
+      email?: unknown;
+      clientId?: unknown;
+      serviceId?: unknown;
+      dateIso?: unknown;
+      time?: unknown;
+      paymentMethod?: unknown;
+    };
+    const paymentMethod = isPaymentMethod(payload.paymentMethod)
+      ? payload.paymentMethod
+      : undefined;
+    return this.bookings.createWalkIn({
+      name: text(payload.name),
+      phone: text(payload.phone),
+      email: text(payload.email),
+      clientId: text(payload.clientId) || undefined,
+      serviceId: text(payload.serviceId),
+      dateIso: text(payload.dateIso),
+      time: text(payload.time),
+      paymentMethod,
+    });
+  }
+
+  @Post('memberships')
+  @HttpCode(200)
+  async createWalkInMembership(@Body() body: unknown) {
+    const payload = (body || {}) as {
+      clientName?: unknown;
+      clientPhone?: unknown;
+      clientEmail?: unknown;
+      clientId?: unknown;
+      planId?: unknown;
+      paymentMethod?: unknown;
+    };
+    const paymentMethod = isPaymentMethod(payload.paymentMethod)
+      ? payload.paymentMethod
+      : undefined;
+    const clientName = text(payload.clientName);
+    const clientPhone = text(payload.clientPhone);
+    const clientEmail = text(payload.clientEmail);
+    const result = await this.store.createWalkInMembership({
+      clientName,
+      clientPhone,
+      clientEmail,
+      clientId: text(payload.clientId) || undefined,
+      planId: text(payload.planId),
+      paymentMethod,
+    });
+    if (result.generatedPassword) {
+      await this.notify.accountCreated({
+        name: clientName,
+        phone: clientPhone,
+        email: clientEmail,
+        password: result.generatedPassword,
+      });
+    }
+    return { invoice: result.invoice, membership: result.membership };
   }
 
   @Post('bookings/:id/quote')
@@ -259,6 +331,7 @@ export class AdminController {
       clientName?: unknown;
       clientPhone?: unknown;
       clientEmail?: unknown;
+      clientId?: unknown;
       items?: unknown;
       note?: unknown;
       kind?: unknown;
@@ -278,11 +351,33 @@ export class AdminController {
       throw new BadRequestException('Nom et au moins une ligne sont requis.');
     }
 
+    const clientPhone = text(payload.clientPhone);
+    const clientEmail = text(payload.clientEmail);
+    const clientId = text(payload.clientId);
+    let ensuredId = clientId;
+    if (clientPhone) {
+      const ensured = await this.store.ensurePublicClient({
+        clientId: clientId || undefined,
+        name: clientName,
+        phone: clientPhone,
+        email: clientEmail,
+      });
+      ensuredId = ensured.id || clientId;
+      if (ensured.generatedPassword) {
+        await this.notify.accountCreated({
+          name: clientName,
+          phone: clientPhone,
+          email: clientEmail,
+          password: ensured.generatedPassword,
+        });
+      }
+    }
+
     const kind = text(payload.kind);
     const invoice = await this.store.createWalkInInvoice({
       clientName,
-      clientPhone: text(payload.clientPhone),
-      clientEmail: text(payload.clientEmail),
+      clientPhone,
+      clientEmail,
       items,
       note: text(payload.note),
       kind:
@@ -292,6 +387,7 @@ export class AdminController {
         kind === 'caisse'
           ? kind
           : undefined,
+      clientId: ensuredId || undefined,
       planId: kind === 'abonnement' ? text(payload.planId) || undefined : undefined,
     });
     return { invoice };
@@ -314,6 +410,7 @@ export class AdminController {
       status?: unknown;
       note?: unknown;
       amount?: unknown;
+      delivered?: unknown;
     };
     const status = text(payload.status);
     const rawAmount = payload.amount;
@@ -332,6 +429,7 @@ export class AdminController {
         : undefined,
       note: typeof payload.note === 'string' ? payload.note : undefined,
       amount: Number.isFinite(amount) ? amount : undefined,
+      delivered: typeof payload.delivered === 'boolean' ? payload.delivered : undefined,
     });
     if (!invoice) throw new NotFoundException('Facture introuvable.');
     return { invoice };
@@ -460,6 +558,52 @@ export class AdminController {
     const removed = await this.store.deleteExpense(id);
     if (!removed) throw new NotFoundException('Dépense introuvable.');
     return { ok: true };
+  }
+
+  @Get('clients')
+  async listClients() {
+    return { clients: await this.store.listPublicClients() };
+  }
+
+  @Post('clients')
+  @HttpCode(200)
+  async createClient(@Body() body: unknown) {
+    const payload = (body || {}) as {
+      name?: unknown;
+      phone?: unknown;
+      email?: unknown;
+    };
+    const name = text(payload.name);
+    const phone = normalizePhone(text(payload.phone));
+    const email = text(payload.email);
+    if (!name || !phone) {
+      throw new BadRequestException('Nom et téléphone sont requis.');
+    }
+    if (!isSnMobile(phone)) {
+      throw new BadRequestException(
+        'Indiquez un numéro sénégalais valide (77, 78, 76, 70…).',
+      );
+    }
+    const already = await this.store.findClientByPhone(phone);
+    if (already) {
+      const client = await this.store.getPublicClient(already.id);
+      return { client, created: false };
+    }
+    const ensured = await this.store.ensurePublicClient({ name, phone, email });
+    if (!ensured.id) {
+      throw new BadRequestException('Compte client impossible.');
+    }
+    if (ensured.generatedPassword) {
+      await this.notify.accountCreated({
+        name,
+        phone,
+        email,
+        password: ensured.generatedPassword,
+      });
+    }
+    const client = await this.store.getPublicClient(ensured.id);
+    if (!client) throw new BadRequestException('Compte client impossible.');
+    return { client, created: Boolean(ensured.generatedPassword) };
   }
 
   @Patch('clients/:id')

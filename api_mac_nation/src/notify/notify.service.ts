@@ -14,21 +14,87 @@ function escapeHtml(value: string) {
     .replaceAll('"', '&quot;');
 }
 
-function emailHtml(title: string, lines: string[]) {
-  const rows = lines
+const MAIL_GOLD = '#e0b12c';
+const MAIL_PHOTO = '/photos/04.jpg';
+
+function isHttpUrl(value: string) {
+  return /^https?:\/\//i.test(value);
+}
+
+function emailHtml(title: string, lines: string[], imageUrl: string) {
+  const intro: string[] = [];
+  const details: { label: string; value: string }[] = [];
+  for (const line of lines) {
+    const split = line.match(/^([^:]{2,40})\s*:\s*(.+)$/);
+    if (split) details.push({ label: split[1].trim(), value: split[2].trim() });
+    else intro.push(line);
+  }
+
+  const introHtml = intro
     .map(
       (line) =>
-        `<p style="margin:0 0 8px;font-size:16px;line-height:1.5;color:#f4f4f5">${escapeHtml(line)}</p>`,
+        `<p style="margin:0 0 16px;font-size:15px;line-height:1.55;color:#111111">${escapeHtml(line)}</p>`,
     )
     .join('');
+
+  const detailsHtml = details.length
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:8px 0 0;width:100%">
+        ${details
+          .map((item) => {
+            const value = isHttpUrl(item.value)
+              ? `<a href="${escapeHtml(item.value)}" style="color:#111111;text-decoration:underline;word-break:break-all">${escapeHtml(item.value)}</a>`
+              : escapeHtml(item.value);
+            return `<tr>
+              <td style="padding:0 0 12px;font-size:15px;line-height:1.5;color:#111111">
+                <span style="display:inline-block;width:8px;height:8px;margin-right:10px;border-radius:50%;background:${MAIL_GOLD};vertical-align:middle"></span>
+                <strong>${escapeHtml(item.label)} :</strong> ${value}
+              </td>
+            </tr>`;
+          })
+          .join('')}
+      </table>`
+    : '';
+
   return `<!doctype html>
 <html>
-  <body style="margin:0;background:#070708;padding:32px;font-family:Georgia,serif">
-    <div style="max-width:480px;margin:0 auto;background:#111113;border:1px solid #c4a57455;padding:28px">
-      <p style="margin:0 0 18px;font-size:13px;letter-spacing:0.18em;color:#c4a574">MAC NATION</p>
-      <h1 style="margin:0 0 20px;font-size:28px;line-height:1.1;color:#fff">${escapeHtml(title)}</h1>
-      ${rows}
-    </div>
+  <body style="margin:0;background:#ffffff;padding:28px 16px;font-family:Arial,Helvetica,sans-serif">
+    <table role="presentation" cellpadding="0" cellspacing="0" align="center" style="width:100%;max-width:560px;margin:0 auto">
+      <tr>
+        <td style="padding:0 0 22px">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td align="center" style="background:#111111;border-radius:999px;padding:16px 20px;font-size:22px;letter-spacing:0.14em;font-weight:800;color:#ffffff">
+                MAC NATION
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 22px">
+          <img src="${escapeHtml(imageUrl)}" alt="MAC NATION" width="560" style="display:block;width:100%;height:auto;border-radius:14px;border:0" />
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:0 0 22px">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td align="center" style="background:${MAIL_GOLD};border-radius:999px;padding:16px 20px;font-size:20px;letter-spacing:0.06em;font-weight:800;color:#111111;text-transform:uppercase">
+                ${escapeHtml(title)}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:4px 8px 8px">${introHtml}${detailsHtml}</td>
+      </tr>
+      <tr>
+        <td style="padding:18px 0 0;border-top:2px solid #111111;text-align:center;font-size:14px;color:#8a8a8a">
+          Mac Nation
+        </td>
+      </tr>
+    </table>
   </body>
 </html>`;
 }
@@ -140,7 +206,7 @@ export class NotifyService {
       return false;
     }
     const text = [options.title, ...options.lines].join('\n');
-    const html = emailHtml(options.title, options.lines);
+    const html = emailHtml(options.title, options.lines, this.mailImageUrl());
     return this.sendWithSmtp([client], options.subject, text, html);
   }
 
@@ -151,8 +217,12 @@ export class NotifyService {
     lines: string[];
   }) {
     const text = [options.title, ...options.lines].join('\n');
-    const html = emailHtml(options.title, options.lines);
+    const html = emailHtml(options.title, options.lines, this.mailImageUrl());
     return this.sendWithSmtp([options.to], options.subject, text, html);
+  }
+
+  private mailImageUrl() {
+    return `${siteUrl(this.config)}${MAIL_PHOTO}`;
   }
 
   private mailFrom() {
@@ -337,22 +407,22 @@ export class NotifyService {
   }) {
     const loginUrl = `${siteUrl(this.config)}/compte/login`;
     const lines = [
-      `${input.name}, ton compte MAC NATION est créé.`,
-      `Connecte-toi pour confirmer ton rendez-vous, tes commandes et tes abonnements.`,
+      `${input.name}, tu as désormais un compte client MAC NATION.`,
+      `Voici tes accès pour tes rendez-vous, commandes et abonnements.`,
       `Téléphone : ${input.phone}`,
       `Mot de passe : ${input.password}`,
-      `Mon compte : ${loginUrl}`,
+      `Connexion : ${loginUrl}`,
     ];
     await Promise.allSettled([
       this.sendSms(
         input.phone,
-        ['MAC NATION : ton compte', ...lines].join('\n'),
+        ['MAC NATION : tes accès client', ...lines].join('\n'),
       ),
       input.email
         ? this.sendClientEmail({
             to: input.email,
-            subject: 'MAC NATION : ton compte client',
-            title: 'Ton compte est créé',
+            subject: 'MAC NATION : tes accès client',
+            title: 'Tu as désormais un compte client',
             lines,
           })
         : Promise.resolve(false),

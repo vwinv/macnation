@@ -10,6 +10,7 @@ import {
   formatFcfa,
   isQuotedService,
   parsePaymentMethod,
+  type PaymentMethod,
 } from '../common/money';
 import { isSnMobile, normalizePhone } from '../common/phone';
 import {
@@ -51,7 +52,7 @@ export class BookingsService {
     };
   }
 
-  async slots(date: string, serviceId?: string) {
+  async slots(date: string, serviceId?: string, opts?: { ignoreLead?: boolean }) {
     const day = date.slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
       throw new UnprocessableEntityException(
@@ -78,7 +79,7 @@ export class BookingsService {
       };
     }
     const occupied = await this.store.occupiedRanges(day);
-    const buffer = leadMinutes(day);
+    const buffer = opts?.ignoreLead ? null : leadMinutes(day);
     const starts = generateStarts(
       dayStatus.hour.openTime,
       dayStatus.hour.closeTime,
@@ -338,6 +339,108 @@ export class BookingsService {
       paid: created.booking.paymentStatus === 'paid',
       accountCreated,
       loginRequired: !loggedIn,
+    };
+  }
+
+  async createWalkIn(input: {
+    name: string;
+    phone: string;
+    email?: string;
+    clientId?: string;
+    serviceId: string;
+    dateIso: string;
+    time: string;
+    paymentMethod?: PaymentMethod;
+  }) {
+    const name = input.name.trim();
+    const phone = normalizePhone(input.phone);
+    const email = (input.email || '').trim();
+    const service = await this.catalog.service(input.serviceId.trim());
+    const dateIso = input.dateIso.slice(0, 10);
+    const time = input.time;
+
+    if (!name || !phone || !service || !dateIso || !time) {
+      throw new UnprocessableEntityException('Informations incomplètes.');
+    }
+    if (!isSnMobile(phone)) {
+      throw new UnprocessableEntityException(
+        'Indiquez un numéro sénégalais valide (77, 78, 76, 70…).',
+      );
+    }
+
+    const quoted = isQuotedService(service.price, service.priceLabel);
+    const durationMin = durationMinutes(service.duration);
+    const availability = await this.slots(dateIso, service.id, {
+      ignoreLead: true,
+    });
+    if (availability.closed) {
+      throw new UnprocessableEntityException(
+        availability.reason || 'Le salon est fermé ce jour-là.',
+      );
+    }
+    const chosen = availability.slots.find((slot) => slot.time === time);
+    if (!chosen?.available) {
+      throw new UnprocessableEntityException(
+        'Cette plage n’est plus disponible. Choisis un autre horaire.',
+      );
+    }
+
+    const dateLabel = formatDateLabel(dateIso);
+    const note = `${dateLabel} · ${chosen.label} · Salon Nord Foire`;
+    const amount = quoted ? 0 : bookingAmount(service.price ?? 0, 'salon', service.id);
+    const items = quoted
+      ? [{ name: service.name, qty: 1, unitPrice: 0 }]
+      : bookingLines(service.name, service.price ?? 0, 'salon', service.id);
+
+    const ensured = await this.store.ensurePublicClient({
+      clientId: input.clientId,
+      name,
+      phone,
+      email,
+    });
+    if (ensured.generatedPassword) {
+      await this.notify.accountCreated({
+        name,
+        phone,
+        email,
+        password: ensured.generatedPassword,
+      });
+    }
+    const created = await this.store.createBooking({
+      name,
+      phone,
+      email,
+      serviceId: service.id,
+      serviceName: service.name,
+      dateIso,
+      dateLabel,
+      time,
+      durationMin,
+      place: 'salon',
+      address: '',
+      amount,
+      paymentStatus: 'unpaid',
+      paymentMethod: input.paymentMethod,
+      items,
+      note,
+      clientId: ensured.id || undefined,
+      confirmed: true,
+    });
+
+    if (input.paymentMethod && created.invoiceId && created.amount > 0) {
+      await this.store.markInvoicePaid({
+        invoiceId: created.invoiceId,
+        method: input.paymentMethod,
+      });
+    }
+    const booking =
+      (await this.store.getBooking(created.booking.id)) || created.booking;
+
+    return {
+      ok: true as const,
+      booking,
+      invoiceId: created.invoiceId,
+      amount: created.amount,
     };
   }
 

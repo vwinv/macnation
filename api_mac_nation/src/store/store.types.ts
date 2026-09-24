@@ -55,6 +55,7 @@ export type Invoice = {
   kind?: InvoiceKind;
   clientId?: string;
   planId?: string;
+  deliveredAt?: string;
 };
 
 export type Payment = {
