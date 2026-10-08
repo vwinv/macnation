@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Injectable,
   UnauthorizedException,
   UnprocessableEntityException,
@@ -34,6 +35,12 @@ export class AuthService {
     if (!isPassword(dto.password)) {
       throw new UnprocessableEntityException(
         'Le mot de passe doit contenir au moins 8 caractères.',
+      );
+    }
+    const existing = await this.store.findClientByPhone(phone);
+    if (existing) {
+      throw new ConflictException(
+        'Ce numéro a déjà un compte. Connecte-toi.',
       );
     }
     const client = await this.store.createClient({

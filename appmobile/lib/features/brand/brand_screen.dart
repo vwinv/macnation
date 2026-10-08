@@ -37,57 +37,58 @@ class BrandScreen extends StatelessWidget {
     ];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('La marque')),
+      appBar: AppBar(title: Text('LA MARQUE')),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        padding: EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
-          const AssetPhoto(AppAssets.reception, height: 220, radius: 18),
-          const SizedBox(height: 18),
+          AssetPhoto(AppAssets.reception, height: 220, radius: 18),
+          SizedBox(height: 18),
           Text('MAC NATION', style: Theme.of(context).textTheme.displayLarge),
           Text(
             'Grooming à Dakar',
-            style: const TextStyle(
-              fontFamily: 'BebasNeue',
-              fontSize: 22,
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
               color: AppColors.gold,
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
+          SizedBox(height: 12),
+          Text(
             'L’art de lier la coiffure classique au barbering moderne. Même exigence sur tous types de cheveux.',
           ),
-          const SizedBox(height: 20),
+          SizedBox(height: 20),
           for (final block in blocks)
             Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: EdgeInsets.only(bottom: 10),
               child: StrokeCard(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(block.$1, style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 6),
+                    SizedBox(height: 6),
                     Text(block.$2),
                   ],
                 ),
               ),
             ),
-          const SizedBox(height: 8),
+          SizedBox(height: 8),
           Text('Notre histoire', style: Theme.of(context).textTheme.displaySmall),
-          const SizedBox(height: 10),
-          const StrokeCard(
+          SizedBox(height: 10),
+          StrokeCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 GoldChip('2025'),
                 SizedBox(height: 8),
-                Text('L’idée', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                Text('L’idée', style: TextStyle(color: AppColors.of(context).onDark, fontWeight: FontWeight.w700)),
                 Text(
                   'MAC NATION naît à Dakar d’une envie simple : un salon où la coupe, la barbe et les produits vivent sous le même toit.',
                 ),
                 SizedBox(height: 16),
                 GoldChip('2026'),
                 SizedBox(height: 8),
-                Text('Nord Foire', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                Text('Nord Foire', style: TextStyle(color: AppColors.of(context).onDark, fontWeight: FontWeight.w700)),
                 Text(
                   'Ouverture du premier salon, en face du service d’hygiène. Un second espace de vie pour l’homme dakarois.',
                 ),

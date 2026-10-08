@@ -1,14 +1,50 @@
 "use client";
 
-import { FormEvent, useState } from "react";
-import Image from "next/image";
+import { FormEvent, useEffect, useState } from "react";
+import CatalogImage from "@/components/CatalogImage";
 import PageHero from "@/components/PageHero";
-import { pageImages, people } from "@/lib/assets";
+import { DEFAULT_SITE_CONTENT, DEFAULT_SITE_IMAGES, mergeSiteContent } from "@/lib/site-content";
 
 export default function ContactPage() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
+  const [heroImage, setHeroImage] = useState(DEFAULT_SITE_IMAGES.brandMosaic[0]);
+  const [sideImage, setSideImage] = useState(DEFAULT_SITE_IMAGES.brandMosaic[0]);
+  const [salon, setSalon] = useState({
+    address: DEFAULT_SITE_CONTENT.salonAddress,
+    city: DEFAULT_SITE_CONTENT.salonCity,
+    country: DEFAULT_SITE_CONTENT.salonCountry,
+    hours: DEFAULT_SITE_CONTENT.salonHours,
+    phone: DEFAULT_SITE_CONTENT.salonPhone,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/catalog/site-content")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return;
+        const raw =
+          json && typeof json === "object" && "content" in json && json.content !== undefined
+            ? json.content
+            : json;
+        const content = mergeSiteContent(raw);
+        setHeroImage(content.images.brandMosaic[0]);
+        setSideImage(content.images.brandMosaic[0]);
+        setSalon({
+          address: content.salonAddress,
+          city: content.salonCity,
+          country: content.salonCountry,
+          hours: content.salonHours,
+          phone: content.salonPhone,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -52,18 +88,28 @@ export default function ContactPage() {
     <main>
       <PageHero
         title="Contactez-nous"
-        subtitle="Salon de Nord Foire, Dakar. Réservation, boutique, abonnement ou candidature : écrivez-nous."
-        image={pageImages.contact}
+        subtitle="Salon de Nord Foire, Dakar. Réservation, boutique ou abonnement : écrivez-nous."
+        image={heroImage}
       />
       <section className="mx-auto grid max-w-[1100px] grid-cols-1 gap-8 px-6 pb-28 lg:grid-cols-[0.9fr_1.1fr]">
-        <div className="relative min-h-[320px] overflow-hidden rounded-2xl">
-          <Image
-            src={people.reception}
-            alt="Accueil MAC NATION Nord Foire"
-            fill
-            className="object-cover"
-            sizes="50vw"
-          />
+        <div className="flex flex-col gap-6">
+          <div className="relative min-h-[240px] overflow-hidden rounded-2xl">
+            <CatalogImage src={sideImage} alt="Accueil MAC NATION Nord Foire" sizes="50vw" />
+          </div>
+          <div className="rounded-2xl bg-black p-6 text-sm text-white/80">
+            <p className="text-xs tracking-[0.18em] text-[#e0b12c]">LE SALON</p>
+            <p className="mt-3">
+              {salon.address}
+              <br />
+              {salon.city}, {salon.country}
+            </p>
+            <p className="mt-2 text-white/55">{salon.hours}</p>
+            {salon.phone ? (
+              <a className="mt-3 inline-block text-white hover:text-[#e0b12c]" href={`tel:${salon.phone.replace(/\s/g, "")}`}>
+                {salon.phone}
+              </a>
+            ) : null}
+          </div>
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-5 rounded-2xl bg-gray-950 p-8 stroke-gradient [--stroke-opacity:0.2]">
           <label className="flex flex-col gap-2 text-sm text-gray-800">
@@ -103,7 +149,6 @@ export default function ContactPage() {
               <option value="domicile">Coiffure à domicile</option>
               <option value="abonnement">Abonnement</option>
               <option value="boutique">Boutique</option>
-              <option value="recrutement">Recrutement</option>
             </select>
           </label>
           <label className="flex flex-col gap-2 text-sm text-gray-800">

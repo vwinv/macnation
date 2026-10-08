@@ -26,32 +26,33 @@ class ApiMacNationRepository implements MacNationRepository {
   Future<void> logout() => _client.tokens.save(null);
 
   @override
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+  }) async {
+    await _client.ready();
+    await _client.post('/push/tokens', {'token': token, 'platform': platform});
+  }
+
+  @override
   Future<AccountSnapshot> loginWithPhone({
     required String phone,
     required String password,
     required String name,
+    String? email,
   }) async {
     await _client.ready();
     final trimmedName = name.trim();
     Map<String, dynamic> auth;
     if (trimmedName.isNotEmpty) {
-      try {
-        auth = _map(
-          await _client.post('/auth/register', {
-            'name': trimmedName,
-            'phone': phone.trim(),
-            'password': password.trim(),
-          }),
-        );
-      } on ApiException catch (error) {
-        if (!error.isConflict) rethrow;
-        auth = _map(
-          await _client.post('/auth/login', {
-            'phone': phone.trim(),
-            'password': password.trim(),
-          }),
-        );
-      }
+      final body = <String, dynamic>{
+        'name': trimmedName,
+        'phone': phone.trim(),
+        'password': password.trim(),
+      };
+      final trimmedEmail = email?.trim() ?? '';
+      if (trimmedEmail.isNotEmpty) body['email'] = trimmedEmail;
+      auth = _map(await _client.post('/auth/register', body));
     } else {
       auth = _map(
         await _client.post('/auth/login', {
@@ -219,24 +220,61 @@ class ApiMacNationRepository implements MacNationRepository {
   }
 
   @override
+  Future<CheckoutOutcome> checkoutBoutique(
+    List<CartLine> items, {
+    String? name,
+    String? phone,
+    String? email,
+  }) {
+    return _checkout(
+      kind: 'boutique',
+      items: items,
+      name: name,
+      phone: phone,
+      email: email,
+    );
+  }
+
+  @override
   Future<CheckoutOutcome> subscribe({
     required MembershipPlan plan,
-    required PaymentMethod method,
+    PaymentMethod? method,
+    String? name,
+    String? phone,
+    String? email,
   }) {
-    return _checkout(kind: 'abonnement', itemId: plan.id, method: method);
+    return _checkout(
+      kind: 'abonnement',
+      itemId: plan.id,
+      method: method,
+      name: name,
+      phone: phone,
+      email: email,
+    );
   }
 
   Future<CheckoutOutcome> _checkout({
     required String kind,
-    required String itemId,
-    required PaymentMethod method,
+    String? itemId,
+    List<CartLine>? items,
+    PaymentMethod? method,
+    String? name,
+    String? phone,
+    String? email,
   }) async {
     final json = _map(
       await _client.post('/checkout', {
         'kind': kind,
-        'itemId': itemId,
-        'qty': 1,
-        'paymentMethod': _method(method),
+        if (itemId != null && itemId.isNotEmpty) 'itemId': itemId,
+        if (items != null)
+          'items': [
+            for (final line in items) {'itemId': line.product.id, 'qty': line.qty},
+          ],
+        if (itemId != null && items == null) 'qty': 1,
+        if (method != null) 'paymentMethod': _method(method),
+        if (name != null && name.trim().isNotEmpty) 'name': name.trim(),
+        if (phone != null && phone.trim().isNotEmpty) 'phone': phone.trim(),
+        if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
       }),
     );
     return CheckoutOutcome(
@@ -256,20 +294,17 @@ class ApiMacNationRepository implements MacNationRepository {
   Future<SoftPayLaunch> startSoftPay({
     String? invoiceId,
     String? pendingId,
-    required PaymentMethod method,
+    PaymentMethod? method,
     required String name,
     required String phone,
     String? email,
   }) async {
-    final channel = _softPayMethod(method);
-    if (channel == null) {
-      return const SoftPayLaunch(message: 'Paiement au salon.');
-    }
+    final channel = method == null ? null : _softPayMethod(method);
     final json = _map(
       await _client.post('/paytech/checkout', {
         if (invoiceId != null && invoiceId.isNotEmpty) 'invoiceId': invoiceId,
         if (pendingId != null && pendingId.isNotEmpty) 'pendingId': pendingId,
-        'method': channel,
+        'method': ?channel,
         'name': name,
         'phone': phone,
         'email': email ?? '',
@@ -473,7 +508,7 @@ class ApiMacNationRepository implements MacNationRepository {
           DateTime.tryParse(json['dateIso'] as String? ?? '') ?? DateTime.now(),
       excerpt: json['excerpt'] as String? ?? '',
       body: json['body'] as String? ?? json['excerpt'] as String? ?? '',
-      image: articleImage(id),
+      image: _articlePhoto(json['image'] as String?, id),
     );
   }
 
@@ -517,6 +552,16 @@ class ApiMacNationRepository implements MacNationRepository {
       return '$origin$image';
     }
     return productImage(id);
+  }
+
+  String _articlePhoto(String? image, String id) {
+    if (image == null || image.isEmpty) return articleImage(id);
+    if (image.startsWith('http://') || image.startsWith('https://')) return image;
+    if (image.startsWith('/api/')) {
+      final origin = _client.baseUrl.replaceFirst(RegExp(r'/api/?$'), '');
+      return '$origin$image';
+    }
+    return articleImage(id);
   }
 
   String _orderImage(String name) {

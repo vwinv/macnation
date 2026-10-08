@@ -109,6 +109,7 @@ model Client {
   ratings        ProductRating[]
   serviceReviews ServiceReview[]
   serviceRatings ServiceRating[]
+  devices        DeviceToken[]
 }
 
 model Booking {
@@ -132,6 +133,8 @@ model Booking {
   invoice       Invoice?
   client        Client?        @relation(fields: [clientId], references: [id])
   clientId      String?
+  reminderEveSent Boolean      @default(false)
+  reminderDaySent Boolean      @default(false)
 
   @@index([dateIso, time])
   @@index([phone])
@@ -379,4 +382,55 @@ model ClosedDate {
   createdAt DateTime @default(now())
   dateIso   String   @unique
   note      String   @default("")
+}
+
+model Article {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  slug      String   @unique
+  title     String
+  category  String   @default("Nos actus")
+  dateIso   String
+  excerpt   String   @default("")
+  body      String   @default("")
+  image     String   @default("/photos/people/people-cut.jpg")
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  pushNotifiedAt DateTime?
+
+  @@index([active, sortOrder])
+  @@index([dateIso])
+}
+
+model SiteContent {
+  id        String   @id
+  updatedAt DateTime @updatedAt
+  payload   Json
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  token     String   @unique
+  platform  String   @default("android")
+  client    Client?  @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  clientId  String?
+
+  @@index([clientId])
+}
+
+model PushCampaign {
+  id         String   @id @default(uuid())
+  createdAt  DateTime @default(now())
+  title      String
+  body       String
+  kind       String
+  audience   String
+  clientIds  String[] @default([])
+  articleId  String?
+  bookingId  String?
+  sentCount  Int      @default(0)
+  failCount  Int      @default(0)
 }

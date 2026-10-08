@@ -84,6 +84,7 @@ abstract class MacNationRepository {
     required String phone,
     required String password,
     required String name,
+    String? email,
   });
   Future<UserProfile> updateProfile({
     required String name,
@@ -108,14 +109,23 @@ abstract class MacNationRepository {
     required Product product,
     required PaymentMethod method,
   });
+  Future<CheckoutOutcome> checkoutBoutique(
+    List<CartLine> items, {
+    String? name,
+    String? phone,
+    String? email,
+  });
   Future<CheckoutOutcome> subscribe({
     required MembershipPlan plan,
-    required PaymentMethod method,
+    PaymentMethod? method,
+    String? name,
+    String? phone,
+    String? email,
   });
   Future<SoftPayLaunch> startSoftPay({
     String? invoiceId,
     String? pendingId,
-    required PaymentMethod method,
+    PaymentMethod? method,
     required String name,
     required String phone,
     String? email,
@@ -136,4 +146,5 @@ abstract class MacNationRepository {
     String? nonce,
     String? name,
   });
+  Future<void> registerDeviceToken({required String token, required String platform});
 }

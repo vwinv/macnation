@@ -4,8 +4,7 @@ import CatalogImage from "@/components/CatalogImage";
 import ReserveLink from "@/components/ReserveLink";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
-import { getCatalogServices } from "@/lib/api";
-import { pageImages } from "@/lib/assets";
+import { getCatalogServices, getSiteContent } from "@/lib/api";
 import { formatServicePrice, isQuotedService } from "@/lib/money";
 
 export const metadata: Metadata = {
@@ -15,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ServicesPage() {
-  const services = await getCatalogServices();
+  const [services, content] = await Promise.all([getCatalogServices(), getSiteContent()]);
 
   return (
     <main>
@@ -26,7 +25,7 @@ export default async function ServicesPage() {
             <span className="!text-[#e0b12c]">Enfants</span>
           </>
         }
-        image={pageImages.services}
+        image={content.images.brandPlace}
         overlay="blur"
       />
       <section className="mx-auto max-w-[1100px] px-6 pb-28 pt-12 sm:pt-16">

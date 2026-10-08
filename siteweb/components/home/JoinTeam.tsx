@@ -3,15 +3,23 @@ import Reveal from "@/components/Reveal";
 import ApplyForm from "@/components/ApplyForm";
 import { people } from "@/lib/assets";
 
-export default function JoinTeam() {
+export default function JoinTeam({
+  kicker = "MAC NATION",
+  title = "Rejoindre notre équipe",
+  text = "Barber, accueil ou candidature spontanée. Envoie ton CV : on lit chaque dossier à Nord Foire.",
+}: {
+  kicker?: string;
+  title?: string;
+  text?: string;
+}) {
   return (
     <section id="equipe" className="w-full scroll-mt-28 px-4 py-10 sm:px-8">
       <div className="mx-auto grid max-w-[1100px] grid-cols-1 items-start gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal>
-          <p className="text-xs tracking-[0.22em] text-[#e0b12c]">MAC NATION</p>
-          <h2 className="title1 mt-3 text-5xl md:text-6xl">Rejoindre notre équipe</h2>
+          <p className="text-xs tracking-[0.22em] text-[#e0b12c]">{kicker}</p>
+          <h2 className="title1 mt-3 text-5xl md:text-6xl">{title}</h2>
           <p className="mt-5 max-w-[46ch] text-sm leading-relaxed text-gray-400 md:text-base">
-            Barber, accueil ou candidature spontanée. Envoie ton CV : on lit chaque dossier à Nord Foire.
+            {text}
           </p>
           <div className="relative mt-8 aspect-[16/10] overflow-hidden rounded-2xl">
             <Image

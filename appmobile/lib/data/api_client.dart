@@ -7,13 +7,10 @@ import 'api_exception.dart';
 import 'token_store.dart';
 
 class ApiClient {
-  ApiClient({
-    http.Client? httpClient,
-    String? baseUrl,
-    TokenStore? tokens,
-  })  : _http = httpClient ?? http.Client(),
-        baseUrl = baseUrl ?? defaultApiBaseUrl(),
-        tokens = tokens ?? TokenStore();
+  ApiClient({http.Client? httpClient, String? baseUrl, TokenStore? tokens})
+    : _http = httpClient ?? http.Client(),
+      baseUrl = baseUrl ?? defaultApiBaseUrl(),
+      tokens = tokens ?? TokenStore();
 
   final http.Client _http;
   final String baseUrl;
@@ -48,9 +45,9 @@ class ApiClient {
     try {
       switch (method) {
         case 'GET':
-          res = await _http.get(uri, headers: headers).timeout(
-                const Duration(seconds: 15),
-              );
+          res = await _http
+              .get(uri, headers: headers)
+              .timeout(const Duration(seconds: 15));
         case 'POST':
           res = await _http
               .post(uri, headers: headers, body: jsonEncode(body ?? {}))
@@ -60,9 +57,9 @@ class ApiClient {
               .patch(uri, headers: headers, body: jsonEncode(body ?? {}))
               .timeout(const Duration(seconds: 15));
         case 'DELETE':
-          res = await _http.delete(uri, headers: headers).timeout(
-                const Duration(seconds: 15),
-              );
+          res = await _http
+              .delete(uri, headers: headers)
+              .timeout(const Duration(seconds: 15));
         default:
           throw ApiException('Méthode HTTP inconnue.');
       }
@@ -96,6 +93,11 @@ class ApiClient {
     }
     if (decoded is Map && decoded['message'] is String) {
       return decoded['message'] as String;
+    }
+    if (decoded is Map &&
+        decoded['message'] is List &&
+        (decoded['message'] as List).isNotEmpty) {
+      return (decoded['message'] as List).first.toString();
     }
     return 'Une erreur est survenue.';
   }

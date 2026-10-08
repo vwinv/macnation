@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:macnation/app.dart';
 import 'package:macnation/data/mock_repository.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  SharedPreferences.setMockInitialValues({});
+
   testWidgets('home puts booking first and keeps the journal', (tester) async {
     await tester.pumpWidget(
       MacNationApp(
@@ -14,10 +18,10 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
     expect(find.text('Choisir un créneau'), findsOneWidget);
-    expect(find.text('Boutique'), findsOneWidget);
+    expect(find.text('Boutique'), findsWidgets);
     expect(find.text('Abonnements'), findsOneWidget);
     expect(find.text('Abos'), findsNothing);
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -900));
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, -1600));
     await tester.pump();
     expect(find.text('Journal'), findsOneWidget);
     expect(find.textContaining('Un lieu'), findsNothing);

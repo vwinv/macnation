@@ -1,4 +1,4 @@
-import Image from "next/image";
+import CatalogImage from "@/components/CatalogImage";
 import type { ReactNode } from "react";
 import Reveal from "@/components/Reveal";
 
@@ -37,10 +37,9 @@ export default function PageHero({
     >
       {showImage && image ? (
         <>
-          <Image
+          <CatalogImage
             src={image}
             alt=""
-            fill
             priority
             className="z-[1] object-cover object-[50%_42%]"
             sizes="100vw"

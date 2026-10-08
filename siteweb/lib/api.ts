@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import type { Booking, Invoice } from "@/lib/salon-types";
+import { DEFAULT_SITE_CONTENT, mergeSiteContent } from "@/lib/site-content";
 
 export function apiOrigin() {
   return (process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001").replace(
@@ -147,4 +148,19 @@ export async function settlePaytechPending(pendingId: string): Promise<PaytechSt
     kind: json?.kind,
     booking: json?.booking,
   };
+}
+
+export async function getSiteContent() {
+  try {
+    const res = await apiFetch("/api/catalog/site-content");
+    if (!res.ok) return DEFAULT_SITE_CONTENT;
+    const json = await res.json().catch(() => null);
+    const raw =
+      json && typeof json === "object" && "content" in json && (json as { content?: unknown }).content !== undefined
+        ? (json as { content: unknown }).content
+        : json;
+    return mergeSiteContent(raw);
+  } catch {
+    return DEFAULT_SITE_CONTENT;
+  }
 }

@@ -2,18 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-
-function Mark() {
-  return (
-    <svg viewBox="0 0 100 100" className="h-28 w-28 text-white" aria-hidden>
-      <rect x="7" y="7" width="86" height="86" fill="none" stroke="currentColor" strokeWidth="5" />
-      <path
-        fill="currentColor"
-        d="M23 78V22h12.5L50 48.5 64.5 22H77v56h-11V42.5L50 66 34 42.5V78H23z"
-      />
-    </svg>
-  );
-}
+import Logo from "@/components/Logo";
 
 export default function Preloader() {
   const prefersReduced = useReducedMotion();
@@ -61,8 +50,8 @@ export default function Preloader() {
             animate={{ opacity: [0, 0.9, 0.35], scale: [0.6, 1.15, 1] }}
             transition={{ duration: 1.35, ease: [0.16, 1, 0.3, 1] }}
           />
-          <div className="relative text-white drop-shadow-[0_0_28px_rgba(224,177,44,0.45)]">
-            <Mark />
+          <div className="relative drop-shadow-[0_0_28px_rgba(224,177,44,0.55)]">
+            <Logo className="h-20 w-52" title="" priority onDark />
           </div>
         </motion.div>
         <motion.p

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GroupedBars, HorizontalBars, VerticalBars } from "@/components/admin/AdminCharts";
-import type { Application, Booking, Invoice, Membership, Payment, PublicClient } from "@/lib/salon-types";
+import type { Booking, Invoice, Membership, Payment, PublicClient } from "@/lib/salon-types";
 import { PAYMENT_METHODS, formatFcfa, monthKey, todayIso } from "@/lib/money";
 
 const DAY_LABELS = ["dim.", "lun.", "mar.", "mer.", "jeu.", "ven.", "sam."];
@@ -46,7 +46,6 @@ export default function AdminDashboardPage() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [clients, setClients] = useState<PublicClient[]>([]);
   const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [applications, setApplications] = useState<Application[]>([]);
   const [expenses, setExpenses] = useState<{ dateIso: string; amount: number }[]>([]);
   const [error, setError] = useState("");
 
@@ -63,7 +62,6 @@ export default function AdminDashboardPage() {
       expenses?: { dateIso: string; amount: number }[];
       clients?: PublicClient[];
       memberships?: Membership[];
-      applications?: Application[];
       error?: string;
     };
     if (!res.ok) {
@@ -75,7 +73,6 @@ export default function AdminDashboardPage() {
     setPayments(json.payments || []);
     setClients(json.clients || []);
     setMemberships(json.memberships || []);
-    setApplications(json.applications || []);
     setExpenses(json.expenses || []);
   }, [router]);
 
@@ -97,7 +94,6 @@ export default function AdminDashboardPage() {
   const unpaidInvoices = invoices.filter((item) => item.status === "envoyee" || item.status === "brouillon");
   const impayes = unpaidInvoices.reduce((sum, item) => sum + item.amount, 0);
   const abos = memberships.filter((item) => item.status === "actif").length;
-  const candidatures = applications.filter((item) => item.status === "nouvelle").length;
 
   const days7 = lastDays(7);
   const ca7 = days7.map((iso) => ({
@@ -132,7 +128,6 @@ export default function AdminDashboardPage() {
     { k: "Nouveaux RDV", v: String(rdvNouveaux), href: "/admin/agenda" },
     { k: "Abonnements", v: String(abos), href: "/admin/clients" },
     { k: "Clients", v: String(clients.length), href: "/admin/clients" },
-    { k: "Candidatures", v: String(candidatures), href: "/admin/candidatures" },
   ];
 
   return (

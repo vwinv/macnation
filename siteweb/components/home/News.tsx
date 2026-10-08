@@ -1,5 +1,4 @@
 import Image from "next/image";
-import Link from "next/link";
 import { articles } from "@/lib/data";
 import Reveal from "@/components/Reveal";
 
@@ -17,18 +16,10 @@ export default function News() {
             Le journal MAC NATION : actus du salon, conseils grooming et coulisses à Dakar.
           </p>
         </Reveal>
-        <Reveal delay={0.12} className="flex flex-col items-center py-8">
-          <Link
-            href="/blog"
-            className="btn-black flex cursor-pointer items-center gap-x-2 rounded-lg px-5 py-1.5 text-[14px] font-medium transition-colors"
-          >
-            Voir toutes les actualités
-          </Link>
-        </Reveal>
-        <div className="grid w-full grid-cols-1 gap-12 md:grid-cols-3 md:gap-4">
+        <div className="grid w-full grid-cols-1 gap-12 py-8 md:grid-cols-3 md:gap-4">
           {latest.map((article, i) => (
             <Reveal key={article.slug} delay={0.08 * i}>
-              <Link href={`/blog/${article.slug}`} className="group block text-left">
+              <div className="group block text-left">
                 <div className="rounded-[15px] p-[1px] stroke-gradient [--stroke-opacity:.2]">
                   <div className="relative min-h-[150px] w-full overflow-hidden rounded-[14px] md:aspect-[7/5]">
                     <Image
@@ -49,7 +40,7 @@ export default function News() {
                     {article.date}
                   </time>
                 </div>
-              </Link>
+              </div>
             </Reveal>
           ))}
         </div>

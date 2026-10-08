@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from "next";
 import { Poppins } from "next/font/google";
 import SiteChrome from "@/components/SiteChrome";
+import { ThemeProvider } from "@/components/ThemeProvider";
+import { THEME_SCRIPT } from "@/lib/theme-script";
 import "./globals.css";
 
 const poppins = Poppins({
@@ -18,7 +20,8 @@ export const metadata: Metadata = {
   description:
     "MAC NATION, barbershop pour hommes à Dakar. Nord Foire, en face du service d'hygiène. Coupe, barbe, boutique capillaire et abonnements. Tous types de cheveux.",
   icons: {
-    icon: "/icon.svg",
+    icon: "/logo.png",
+    apple: "/logo.png",
   },
 };
 
@@ -32,8 +35,13 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" className={poppins.variable} suppressHydrationWarning>
-      <body className={`${poppins.className} font-sans bg-background p-0 antialiased`} suppressHydrationWarning>
-        <SiteChrome>{children}</SiteChrome>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_SCRIPT }} />
+      </head>
+      <body className={`${poppins.className} font-sans bg-background p-0 text-foreground antialiased`} suppressHydrationWarning>
+        <ThemeProvider>
+          <SiteChrome>{children}</SiteChrome>
+        </ThemeProvider>
       </body>
     </html>
   );

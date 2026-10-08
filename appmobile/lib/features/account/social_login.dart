@@ -15,17 +15,19 @@ Future<void> startSocialLogin(
   final state = AppScope.of(context);
   final config = await state.repository.fetchOauthConfig();
 
-  if (provider == 'facebook') {
-    throw const ApiException(
-      'Facebook se connecte pour l’instant sur le site. Utilise Google, Apple ou ton mot de passe.',
-    );
-  }
-
   if (provider == 'google') {
     if (!config.googleReady) {
       throw const ApiException('Connexion Google pas encore activée.');
     }
-    final google = GoogleSignIn(serverClientId: config.google);
+    final google = GoogleSignIn(
+      scopes: const ['email', 'profile'],
+      serverClientId: config.google,
+      clientId: kIsWeb
+          ? null
+          : Platform.isIOS
+          ? '129490321592-lgqdqkmebvn5qeb1jd4qothosu85cil0.apps.googleusercontent.com'
+          : '129490321592-20nr6hgp013ufcda3nr04030h8i91g1q.apps.googleusercontent.com',
+    );
     final account = await google.signIn();
     if (account == null) return;
     final auth = await account.authentication;

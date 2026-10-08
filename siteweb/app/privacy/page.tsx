@@ -38,12 +38,10 @@ export default function PrivacyPage() {
         l&apos;accès au backoffice. Aucune publicité tierce n&apos;est déposée par MAC
         NATION.
       </p>
-      <h2>Connexion Facebook</h2>
+      <h2>Connexion Google et Apple</h2>
       <p>
-        Si tu te connectes avec Facebook, Meta peut demander la suppression de tes données.
-        L&apos;URL à coller chez Meta (callback) est gérée par l&apos;API. Le suivi de
-        confirmation s&apos;affiche sur{" "}
-        <Link href="/suppression-donnees">cette page</Link>.
+        Tu peux te connecter avec Google ou Apple. Seuls l&apos;identifiant du compte, l&apos;email
+        (s&apos;il est fourni) et le nom sont utilisés pour créer ou retrouver ton espace client.
       </p>
     </LegalArticle>
   );

@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "129490321592",
+    "project_id": "macnation-3905a",
+    "storage_bucket": "macnation-3905a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129490321592:android:a16bfe3d1ac92563cbf44d",
+        "android_client_info": {
+          "package_name": "com.macnation.appmobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "129490321592-20nr6hgp013ufcda3nr04030h8i91g1q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.macnation.appmobile",
+            "certificate_hash": "5d8d3da110877925ab94716b9c1e58d130fb0fa3"
+          }
+        },
+        {
+          "client_id": "129490321592-g0j6qkpi3fe42994j024usllstbup0ii.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAzUyjn-OiMyG2JrqhvScfNgsmt_bBL6jY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "129490321592-g0j6qkpi3fe42994j024usllstbup0ii.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "129490321592-lgqdqkmebvn5qeb1jd4qothosu85cil0.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.macnation.appmobile",
+                "app_store_id": "6820619431"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

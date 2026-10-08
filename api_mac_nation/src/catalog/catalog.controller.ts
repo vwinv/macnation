@@ -46,6 +46,11 @@ export class CatalogController {
     return this.catalog.salon();
   }
 
+  @Get('site-content')
+  siteContent() {
+    return this.catalog.siteContent();
+  }
+
   @Get('services')
   services() {
     return this.catalog.services();
@@ -144,8 +149,8 @@ export class CatalogController {
   }
 
   @Get('articles/:id')
-  article(@Param('id') id: string) {
-    const item = this.catalog.article(id);
+  async article(@Param('id') id: string) {
+    const item = await this.catalog.article(id);
     if (!item) throw new NotFoundException('Article introuvable.');
     return item;
   }

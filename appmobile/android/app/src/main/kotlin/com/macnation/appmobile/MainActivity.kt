@@ -1,4 +1,4 @@
-package com.example.macnation
+package com.macnation.appmobile
 
 import io.flutter.embedding.android.FlutterActivity
 

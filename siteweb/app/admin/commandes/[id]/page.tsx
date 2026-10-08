@@ -1,10 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAdminInvoice } from "@/lib/api";
 import { formatFcfa, methodLabel } from "@/lib/money";
 import { salonInfo } from "@/lib/assets";
 import OrderActions from "@/components/admin/OrderActions";
+import Logo from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +92,7 @@ export default async function AdminOrderPage({ params }: { params: Promise<{ id:
       <article className="hidden print:block text-black">
         <div className="flex items-start justify-between gap-4 border-b border-black/10 pb-6">
           <div className="flex items-start gap-4">
-            <Image src="/logo-square-dark.svg" alt="MAC NATION" width={72} height={72} className="h-16 w-16 shrink-0" />
+            <Logo className="h-14 w-32 shrink-0" onLight />
             <div>
               <p className="text-xs tracking-[0.22em] text-[#8a6d3d]">MAC NATION</p>
               <h1 className="font-bebas mt-1 text-5xl">Reçu de paiement</h1>

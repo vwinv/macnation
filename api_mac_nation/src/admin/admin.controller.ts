@@ -32,6 +32,8 @@ import {
   type ExpenseCategory,
 } from '../common/money';
 import { NotifyService } from '../notify/notify.service';
+import { PushService } from '../push/push.service';
+import { addDaysIso, dakarDateIso } from '../common/dakar-date';
 import { isSnMobile, normalizePhone } from '../common/phone';
 import { paytechException } from '../paytech/paytech.errors';
 import { PaytechService } from '../paytech/paytech.service';
@@ -187,6 +189,22 @@ function parseServiceBody(raw: unknown) {
   };
 }
 
+function parseArticleBody(raw: unknown) {
+  const payload = (raw || {}) as Record<string, unknown>;
+  return {
+    title: text(payload.title),
+    category: payload.category === undefined ? undefined : text(payload.category),
+    dateIso: payload.dateIso === undefined ? undefined : text(payload.dateIso),
+    excerpt: payload.excerpt === undefined ? undefined : text(payload.excerpt),
+    body: payload.body === undefined ? undefined : text(payload.body),
+    image: payload.image === undefined ? undefined : text(payload.image),
+    active:
+      payload.active === undefined
+        ? undefined
+        : payload.active === true || payload.active === 'true',
+  };
+}
+
 @Controller('admin')
 @UseGuards(AdminGuard)
 export class AdminController {
@@ -198,6 +216,7 @@ export class AdminController {
     private readonly catalog: CatalogService,
     private readonly notify: NotifyService,
     private readonly bookings: BookingsService,
+    private readonly push: PushService,
   ) {}
 
   @Get('salon')
@@ -798,6 +817,142 @@ export class AdminController {
     const plan = await this.catalog.removePlan(id);
     if (!plan) throw new NotFoundException('Abonnement introuvable.');
     return { plan };
+  }
+
+  @Get('articles')
+  async listArticles() {
+    return { articles: await this.catalog.listAdminArticles() };
+  }
+
+  @Post('articles')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  async createArticle(
+    @Body() body: unknown,
+    @UploadedFile() photo?: UploadedPhoto,
+  ) {
+    const input = parseArticleBody(body);
+    if (!input.title) throw new BadRequestException('Le titre est obligatoire.');
+    if (photo) {
+      input.image = await this.catalog.storeProductPhoto(photo);
+    }
+    const article = await this.catalog.createArticle(input);
+    if (article.active) {
+      void this.push.articlePublished({
+        id: article.id,
+        title: article.title,
+        excerpt: article.excerpt,
+      });
+    }
+    return { article };
+  }
+
+  @Patch('articles/:id')
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  async updateArticle(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @UploadedFile() photo?: UploadedPhoto,
+  ) {
+    const input = parseArticleBody(body);
+    if (photo) {
+      input.image = await this.catalog.storeProductPhoto(photo);
+    }
+    const article = await this.catalog.updateArticle(id, input);
+    if (!article) throw new NotFoundException('Article introuvable.');
+    if (article.active && !article.pushNotifiedAt) {
+      void this.push.articlePublished({
+        id: article.id,
+        title: article.title,
+        excerpt: article.excerpt,
+      });
+    }
+    return { article };
+  }
+
+  @Delete('articles/:id')
+  @HttpCode(200)
+  async removeArticle(@Param('id') id: string) {
+    const article = await this.catalog.removeArticle(id);
+    if (!article) throw new NotFoundException('Article introuvable.');
+    return { article };
+  }
+
+  @Get('push')
+  async listPush() {
+    const [campaigns, devices, configured] = await Promise.all([
+      this.push.listCampaigns(),
+      this.push.deviceCount(),
+      Promise.resolve(this.push.configured()),
+    ]);
+    return { campaigns, devices, configured };
+  }
+
+  @Post('push')
+  @HttpCode(200)
+  async sendPush(@Body() body: unknown) {
+    const payload = (body || {}) as {
+      title?: unknown;
+      body?: unknown;
+      audience?: unknown;
+      clientIds?: unknown;
+    };
+    const title = text(payload.title);
+    const message = text(payload.body);
+    const audience = text(payload.audience) === 'targeted' ? 'targeted' : 'general';
+    const clientIds = Array.isArray(payload.clientIds)
+      ? payload.clientIds.map((item) => String(item).trim()).filter(Boolean)
+      : [];
+    if (!title || !message) {
+      throw new BadRequestException('Titre et texte sont requis.');
+    }
+    if (audience === 'targeted' && !clientIds.length) {
+      throw new BadRequestException('Choisis au moins un client pour une notification ciblée.');
+    }
+    const campaign =
+      audience === 'targeted'
+        ? await this.push.sendToClients(clientIds, {
+            title,
+            body: message,
+            kind: 'targeted',
+            clientIds,
+          })
+        : await this.push.sendToAll({
+            title,
+            body: message,
+            kind: 'general',
+          });
+    return { campaign };
+  }
+
+  @Post('push/reminders')
+  @HttpCode(200)
+  async runReminders() {
+    const today = dakarDateIso();
+    return this.push.sendRemindersForDate(today, addDaysIso(today, 1));
+  }
+
+  @Get('site-content')
+  async getSiteContent() {
+    return { content: await this.catalog.siteContent() };
+  }
+
+  @Put('site-content')
+  async saveSiteContent(@Body() body: unknown) {
+    const payload = (body || {}) as { content?: unknown };
+    const content = await this.catalog.saveSiteContent(
+      payload.content !== undefined ? payload.content : body,
+    );
+    return { content };
+  }
+
+  @Post('site-content/photo')
+  @HttpCode(200)
+  @UseInterceptors(FileInterceptor('photo', { limits: { fileSize: 5_000_000 } }))
+  async uploadSitePhoto(@UploadedFile() photo?: UploadedPhoto) {
+    if (!photo) throw new BadRequestException('Ajoute une photo.');
+    const url = await this.catalog.storeSitePhoto(photo);
+    return { url };
   }
 
   @Get('schedule')

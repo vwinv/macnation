@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
+import CatalogImage from "@/components/CatalogImage";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
-import { pageImages, people, photos } from "@/lib/assets";
+import { getSiteContent } from "@/lib/api";
 import { formatFcfa } from "@/lib/money";
 import { fetchPublicPlans } from "@/lib/plans";
 
@@ -11,12 +11,19 @@ export const metadata: Metadata = {
   title: "Abonnements",
 };
 
+export const dynamic = "force-dynamic";
+
 export default async function AbonnementsPage() {
-  const plans = await fetchPublicPlans();
+  const [plans, content] = await Promise.all([fetchPublicPlans(), getSiteContent()]);
+  const shots = [
+    { src: content.images.plans, alt: "Clients en attente" },
+    { src: content.images.salonGallery[3], alt: "Lounge" },
+    { src: content.images.brandPlace, alt: "Coupe en salon" },
+  ];
 
   return (
     <main>
-      <PageHero title="Abonnements" image={pageImages.abonnements} overlay="blur" />
+      <PageHero title="Abonnements" image={content.images.plans} overlay="blur" />
       <section className="mx-auto grid max-w-[1100px] grid-cols-1 gap-6 px-6 pb-12 pt-12 sm:pt-16 md:grid-cols-3">
         <p className="col-span-full mx-auto mb-6 max-w-[60ch] text-center text-sm leading-relaxed text-black sm:mb-10 md:text-base">
           Payer en ligne par Wave, Orange Money ou Free Money. Valable uniquement à Nord Foire.
@@ -61,13 +68,9 @@ export default async function AbonnementsPage() {
       </section>
       <section className="mx-auto mb-10 max-w-[1100px] px-6">
         <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          {[
-            { src: people.waiting, alt: "Clients en attente" },
-            { src: photos.lounge, alt: "Lounge" },
-            { src: people.cut, alt: "Coupe en salon" },
-          ].map((shot) => (
-            <div key={shot.src} className="relative aspect-[16/10] overflow-hidden rounded-xl">
-              <Image src={shot.src} alt={shot.alt} fill className="object-cover" sizes="33vw" />
+          {shots.map((shot) => (
+            <div key={shot.alt} className="relative aspect-[16/10] overflow-hidden rounded-xl">
+              <CatalogImage src={shot.src} alt={shot.alt} sizes="33vw" />
             </div>
           ))}
         </div>

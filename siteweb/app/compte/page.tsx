@@ -9,6 +9,7 @@ import { formatFcfa } from "@/lib/money";
 import BookingsPopup from "@/components/BookingsPopup";
 import OrdersPopup from "@/components/OrdersPopup";
 import ProfilePopup from "@/components/ProfilePopup";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Dashboard = {
   client: PublicClient;
@@ -139,7 +140,7 @@ export default function ComptePage() {
         <p className="mt-6 rounded-lg bg-[#e0b12c]/15 px-4 py-3 text-sm text-[#e0b12c]">
           {!client.phone
             ? "Ajoute un numéro sénégalais dans le profil pour réserver, payer et lier tes points. "
-            : "Choisis un mot de passe dans le profil pour te reconnecter sans Google / Apple / Facebook. "}
+            : "Choisis un mot de passe dans le profil pour te reconnecter sans Google / Apple. "}
           <button type="button" onClick={() => setProfileOpen(true)} className="underline hover:text-black">
             Compléter le profil
           </button>
@@ -212,6 +213,10 @@ export default function ComptePage() {
             </button>
           ) : null}
         </article>
+      </section>
+
+      <section className="mt-8 rounded-2xl bg-gray-950 px-5 py-4 ring-1 ring-black/10">
+        <ThemeToggle variant="pills" />
       </section>
 
       <div className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2">

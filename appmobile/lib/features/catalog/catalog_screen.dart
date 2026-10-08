@@ -28,26 +28,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Catalogue')),
+      appBar: AppBar(title: const Text('CATALOGUE')),
       body: FutureBuilder<List<ServiceItem>>(
         future: _future,
         builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          if (snapshot.hasError) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(32),
-                child: Text(
-                  'Impossible de charger le catalogue. Vérifie l’API.',
-                  textAlign: TextAlign.center,
+          if (!snapshot.hasData) {
+            if (snapshot.hasError) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: Text(
+                    'Impossible de charger le catalogue. Vérifie l’API.',
+                    textAlign: TextAlign.center,
+                  ),
                 ),
-              ),
+              );
+            }
+            return const Center(
+              child: CircularProgressIndicator(color: AppColors.gold),
             );
           }
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.gold),
-          );
-        }
           final services = snapshot.data!;
           final groups = <String, List<ServiceItem>>{};
           for (final service in services) {
@@ -68,6 +68,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),
                     child: StrokeCard(
+                      dark: true,
                       padding: EdgeInsets.zero,
                       onTap: () {
                         final reserve = widget.onReserve;
@@ -89,16 +90,26 @@ class _CatalogScreenState extends State<CatalogScreen> {
                         children: [
                           AssetPhoto(service.image, height: 150, radius: 16),
                           Padding(
-                            padding: const EdgeInsets.all(14),
+                            padding: EdgeInsets.all(14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                Icon(
+                                  Icons.content_cut,
+                                  size: 18,
+                                  color: AppColors.gold,
+                                ),
+                                SizedBox(height: 8),
                                 Row(
                                   children: [
                                     Expanded(
                                       child: Text(
                                         service.name,
-                                        style: Theme.of(context).textTheme.titleLarge,
+                                        style: TextStyle(
+                                          color: AppColors.of(context).onDark,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 18,
+                                        ),
                                       ),
                                     ),
                                     Text(
@@ -112,12 +123,19 @@ class _CatalogScreenState extends State<CatalogScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                Text(service.description),
-                                const SizedBox(height: 8),
+                                SizedBox(height: 6),
+                                Text(
+                                  service.description,
+                                  style: TextStyle(
+                                    color: AppColors.of(context).muted,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
                                 Text(
                                   service.duration,
-                                  style: const TextStyle(color: AppColors.gold),
+                                  style: TextStyle(
+                                    color: AppColors.of(context).muted,
+                                  ),
                                 ),
                               ],
                             ),

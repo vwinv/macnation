@@ -34,6 +34,8 @@ api_mac_nation/dist/
 api_mac_nation/build/
 api_mac_nation/uploads/
 api_mac_nation/data/store.json
+api_mac_nation/firebase-adminsdk.json
+api_mac_nation/*firebase-adminsdk*.json
 
 # --- siteweb (Next.js) ---
 siteweb/node_modules/

@@ -55,7 +55,7 @@ Alias site (cookies) : `/api/compte/login|register|logout|session|me|profile|red
 ## Sign in with Apple
 
 - `APPLE_CLIENT_ID` = Services ID web (`com.macnation.web`)
-- `APPLE_BUNDLE_ID` = bundle iOS (`com.macnation.app`)
+- `APPLE_BUNDLE_ID` = bundle iOS (`com.macnation.appmobile`)
 - Return URL Apple : `{SITE_URL}/compte/login`
 - Fichier de domaine : `/.well-known/apple-developer-domain-association.txt` sur le site (`APPLE_DOMAIN_ASSOCIATION`)
 

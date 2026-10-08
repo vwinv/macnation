@@ -12,6 +12,8 @@ npm-debug.log*
 .env
 .env.local
 .env.*.local
+firebase-adminsdk.json
+*firebase-adminsdk*.json
 
 # tests
 /coverage

@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getAdminInvoice } from "@/lib/api";
@@ -6,6 +5,7 @@ import { formatFcfa, methodLabel } from "@/lib/money";
 import { salonInfo } from "@/lib/assets";
 import { PrintButton } from "@/components/admin/AdminNav";
 import InvoiceActions from "@/components/admin/InvoiceActions";
+import Logo from "@/components/Logo";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +31,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
       <article className="rounded-2xl bg-white p-8 text-black print:rounded-none print:p-0">
         <div className="flex items-start justify-between gap-4 border-b border-black/10 pb-6">
           <div className="flex items-start gap-4">
-            <Image
-              src="/logo-square-dark.svg"
-              alt="MAC NATION"
-              width={72}
-              height={72}
-              className="h-16 w-16 shrink-0 sm:h-[72px] sm:w-[72px]"
-              priority
-            />
+            <Logo className="h-14 w-32 shrink-0 sm:h-16 sm:w-36" onLight />
             <div>
               <p className="text-xs tracking-[0.22em] text-[#8a6d3d]">MAC NATION</p>
               <h1 className="font-bebas mt-1 text-5xl">Facture</h1>

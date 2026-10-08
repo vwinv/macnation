@@ -7,7 +7,6 @@ type Config = {
   google: string;
   apple: string;
   appleRedirect?: string;
-  facebook: string;
   siteUrl: string;
 };
 
@@ -31,14 +30,6 @@ declare global {
         }>;
       };
     };
-    FB?: {
-      init: (config: Record<string, unknown>) => void;
-      login: (
-        cb: (res: { authResponse?: { accessToken?: string } }) => void,
-        opts: Record<string, unknown>,
-      ) => void;
-    };
-    fbAsyncInit?: () => void;
   }
 }
 
@@ -88,17 +79,6 @@ function GoogleMark() {
   );
 }
 
-function FacebookMark() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden>
-      <path
-        fill="currentColor"
-        d="M14.5 22v-8.2h2.8l.4-3.3h-3.2V8.4c0-1 .3-1.6 1.7-1.6H18V3.9c-.3 0-1.2-.1-2.3-.1-2.3 0-3.8 1.4-3.8 3.9v2.2H9v3.3h2.9V22h2.6z"
-      />
-    </svg>
-  );
-}
-
 export default function SocialLogin({
   onError,
   onBusy,
@@ -112,7 +92,7 @@ export default function SocialLogin({
 }) {
   const [device, setDevice] = useState({
     primary: "google" as SocialProvider,
-    order: ["google", "apple", "facebook"] as SocialProvider[],
+    order: ["google", "apple"] as SocialProvider[],
     hint: "Connecte-toi avec le compte de ton appareil.",
   });
   const [config, setConfig] = useState<Config | null>(null);
@@ -156,7 +136,7 @@ export default function SocialLogin({
         if (live) setConfig(json);
       })
       .catch(() => {
-        if (live) setConfig({ google: "", apple: "", facebook: "", siteUrl: "" });
+        if (live) setConfig({ google: "", apple: "", siteUrl: "" });
       });
     return () => {
       live = false;
@@ -217,13 +197,6 @@ export default function SocialLogin({
           nonce: appleNonce.current,
         });
       }
-
-      if (cfg.facebook) {
-        window.fbAsyncInit = () => {
-          window.FB?.init({ appId: cfg.facebook, cookie: true, xfbml: false, version: "v21.0" });
-        };
-        await loadScript("https://connect.facebook.net/fr_FR/sdk.js", "mn-facebook-sdk");
-      }
     }
 
     void setup();
@@ -232,45 +205,28 @@ export default function SocialLogin({
     };
   }, [config, device.primary]);
 
-  async function start(provider: Exclude<SocialProvider, "google">) {
+  async function startApple() {
     onError("");
     if (!config) return;
-    if (provider === "apple") {
-      if (!config.apple || !window.AppleID) {
-        onError("Connexion Apple pas encore activée.");
+    if (!config.apple || !window.AppleID) {
+      onError("Connexion Apple pas encore activée.");
+      return;
+    }
+    try {
+      onBusy(true);
+      const result = await window.AppleID.auth.signIn();
+      const token = result.authorization?.id_token;
+      if (!token) {
+        onError("Connexion Apple annulée.");
         return;
       }
-      try {
-        onBusy(true);
-        const result = await window.AppleID.auth.signIn();
-        const token = result.authorization?.id_token;
-        if (!token) {
-          onError("Connexion Apple annulée.");
-          return;
-        }
-        const fullName = [result.user?.name?.firstName, result.user?.name?.lastName].filter(Boolean).join(" ");
-        await send.current("apple", token, appleNonce.current, fullName);
-      } catch {
-        onError("Connexion Apple annulée.");
-      } finally {
-        onBusy(false);
-      }
-      return;
+      const fullName = [result.user?.name?.firstName, result.user?.name?.lastName].filter(Boolean).join(" ");
+      await send.current("apple", token, appleNonce.current, fullName);
+    } catch {
+      onError("Connexion Apple annulée.");
+    } finally {
+      onBusy(false);
     }
-    if (!config.facebook || !window.FB) {
-      onError("Connexion Facebook pas encore activée.");
-      return;
-    }
-    window.FB.login(
-      (res) => {
-        if (!res.authResponse?.accessToken) {
-          onError("Connexion Facebook annulée.");
-          return;
-        }
-        void send.current("facebook", res.authResponse.accessToken);
-      },
-      { scope: "email,public_profile" },
-    );
   }
 
   function googleFallback() {
@@ -289,7 +245,7 @@ export default function SocialLogin({
         <div key="google" className={primary ? "w-full" : ""}>
           <div
             ref={googleBox}
-            className={`flex w-full justify-center overflow-hidden rounded-lg ${
+            className={`flex w-full min-w-[280px] justify-center overflow-hidden rounded-lg ${
               config && !config.google ? "hidden" : primary ? "min-h-12" : "min-h-11"
             }`}
           />
@@ -307,16 +263,12 @@ export default function SocialLogin({
       );
     }
     const className = primary
-      ? `flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-lg text-sm font-medium ${
-          provider === "apple" ? "bg-white text-black" : "bg-[#1877F2] text-black"
-        }`
-      : `flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg text-sm ${
-          provider === "apple" ? "bg-white text-black" : "bg-[#1877F2] text-black"
-        }`;
+      ? "flex h-12 w-full cursor-pointer items-center justify-center gap-3 rounded-lg bg-white text-sm font-medium text-black"
+      : "flex h-11 w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-white text-sm text-black";
     return (
-      <button key={provider} type="button" onClick={() => void start(provider)} className={className}>
-        {provider === "apple" ? <AppleMark /> : <FacebookMark />}
-        {primary ? (provider === "apple" ? "Continuer avec Apple" : "Continuer avec Facebook") : provider === "apple" ? "Apple" : "Facebook"}
+      <button key="apple" type="button" onClick={() => void startApple()} className={className}>
+        <AppleMark />
+        {primary ? "Continuer avec Apple" : "Apple"}
       </button>
     );
   }
@@ -326,7 +278,7 @@ export default function SocialLogin({
       <p className="text-sm text-gray-400">{device.hint}</p>
       <div className="mt-4">{button(device.primary, true)}</div>
       <p className="mt-4 text-center text-[11px] tracking-[0.18em] text-gray-600">AUTRES COMPTES</p>
-      <div className="mt-3 grid grid-cols-2 gap-2">{others.map((provider) => button(provider, false))}</div>
+      <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-1">{others.map((provider) => button(provider, false))}</div>
     </div>
   );
 }

@@ -167,9 +167,27 @@ class MockMacNationRepository implements MacNationRepository {
   }
 
   @override
+  Future<CheckoutOutcome> checkoutBoutique(
+    List<CartLine> items, {
+    String? name,
+    String? phone,
+    String? email,
+  }) async {
+    await Future<void>.delayed(const Duration(milliseconds: 700));
+    final amount = items.fold<int>(0, (sum, line) => sum + line.total);
+    return CheckoutOutcome(
+      pendingId: 'mock-pending',
+      amount: amount,
+    );
+  }
+
+  @override
   Future<CheckoutOutcome> subscribe({
     required MembershipPlan plan,
-    required PaymentMethod method,
+    PaymentMethod? method,
+    String? name,
+    String? phone,
+    String? email,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 700));
     return CheckoutOutcome(
@@ -183,7 +201,7 @@ class MockMacNationRepository implements MacNationRepository {
   Future<SoftPayLaunch> startSoftPay({
     String? invoiceId,
     String? pendingId,
-    required PaymentMethod method,
+    PaymentMethod? method,
     required String name,
     required String phone,
     String? email,
@@ -243,10 +261,17 @@ class MockMacNationRepository implements MacNationRepository {
   Future<void> logout() async {}
 
   @override
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+  }) async {}
+
+  @override
   Future<AccountSnapshot> loginWithPhone({
     required String phone,
     required String password,
     required String name,
+    String? email,
   }) async {
     await Future<void>.delayed(const Duration(milliseconds: 500));
     if (password.length < 8) {
@@ -377,7 +402,7 @@ const _products = [
     name: 'Pommade Hold',
     category: 'Coiffage',
     description:
-        'Tenue mate, flexible. Pour fades et textures courtes qui doivent tenir toute la journée.',
+        'Fixation tenue longue, fini naturel sans effet gras. Adaptée aux cheveux courts et texturés.',
     price: 5000,
     image: AppAssets.cut,
   ),

@@ -28,11 +28,18 @@ class _MacNationAppState extends State<MacNationApp> {
   Widget build(BuildContext context) {
     return AppScope(
       state: _state,
-      child: MaterialApp(
-        title: 'MAC NATION',
-        debugShowCheckedModeBanner: false,
-        theme: AppTheme.dark(),
-        home: widget.showSplash ? const SplashScreen() : const MainShell(),
+      child: ListenableBuilder(
+        listenable: _state,
+        builder: (context, _) {
+          return MaterialApp(
+            title: 'MAC NATION',
+            debugShowCheckedModeBanner: false,
+            theme: AppTheme.light(),
+            darkTheme: AppTheme.dark(),
+            themeMode: _state.themeMode,
+            home: widget.showSplash ? const SplashScreen() : const MainShell(),
+          );
+        },
       ),
     );
   }
@@ -81,10 +88,14 @@ class _SplashScreenState extends State<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final overlay = Theme.of(context).brightness == Brightness.dark
+        ? SystemUiOverlayStyle.light
+        : SystemUiOverlayStyle.dark;
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: overlay,
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: colors.background,
         body: FadeTransition(
           opacity: _fade,
           child: Center(
@@ -101,16 +112,17 @@ class _SplashScreenState extends State<SplashScreen>
                       ),
                     ],
                   ),
-                  child: const MnLogo(size: 92),
+                  child: MnLogo(size: 92, color: colors.onDark),
                 ),
                 const SizedBox(height: 22),
-                const Text(
+                Text(
                   'MAC NATION',
                   style: TextStyle(
-                    fontFamily: 'BebasNeue',
-                    fontSize: 34,
-                    letterSpacing: 4,
-                    color: Colors.white,
+                    fontFamily: 'Manrope',
+                    fontSize: 28,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2,
+                    color: colors.onDark,
                   ),
                 ),
                 const SizedBox(height: 6),

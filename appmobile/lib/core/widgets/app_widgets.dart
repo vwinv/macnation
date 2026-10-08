@@ -4,16 +4,16 @@ import '../theme/app_assets.dart';
 import '../theme/app_colors.dart';
 
 class MnLogo extends StatelessWidget {
-  const MnLogo({super.key, this.size = 72, this.color = Colors.white});
+  const MnLogo({super.key, this.size = 72, this.color});
 
   final double size;
-  final Color color;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
       size: Size.square(size),
-      painter: _MnLogoPainter(color),
+      painter: _MnLogoPainter(color ?? AppColors.of(context).onDark),
     );
   }
 }
@@ -67,6 +67,7 @@ class GoldButton extends StatelessWidget {
     this.expand = true,
     this.icon,
     this.height = 52,
+    this.radius = 16,
   });
 
   final String label;
@@ -75,6 +76,7 @@ class GoldButton extends StatelessWidget {
   final bool expand;
   final IconData? icon;
   final double height;
+  final double radius;
 
   @override
   Widget build(BuildContext context) {
@@ -85,14 +87,18 @@ class GoldButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: loading ? null : onPressed,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(radius),
           child: Ink(
             height: height,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              gradient: const LinearGradient(
-                colors: [AppColors.goldSoft, AppColors.gold, AppColors.goldDeep],
-              ),
+              borderRadius: BorderRadius.circular(radius),
+              color: AppColors.gold,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x61C49A22),
+                  blurRadius: 22,
+                ),
+              ],
             ),
             child: Center(
               child: loading
@@ -105,19 +111,22 @@ class GoldButton extends StatelessWidget {
                       ),
                     )
                   : Row(
-                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         if (icon != null) ...[
                           Icon(icon, size: 18, color: AppColors.ink),
                           const SizedBox(width: 8),
                         ],
-                        Text(
-                          label,
-                          style: const TextStyle(
-                            fontFamily: 'Manrope',
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink,
+                        Flexible(
+                          child: Text(
+                            label,
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink,
+                            ),
                           ),
                         ),
                       ],
@@ -144,15 +153,53 @@ class GhostButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        foregroundColor: Colors.white,
-        side: const BorderSide(color: AppColors.stroke),
+        foregroundColor: colors.onDark,
+        side: BorderSide(color: colors.stroke),
         minimumSize: const Size.fromHeight(48),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
       child: Text(label),
+    );
+  }
+}
+
+class BlackButton extends StatelessWidget {
+  const BlackButton({
+    super.key,
+    required this.label,
+    required this.onPressed,
+    this.height = 48,
+  });
+
+  final String label;
+  final VoidCallback? onPressed;
+  final double height;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: height,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.ink,
+          foregroundColor: AppColors.onInk,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontWeight: FontWeight.w600,
+            fontSize: 14,
+          ),
+        ),
+      ),
     );
   }
 }
@@ -163,23 +210,36 @@ class StrokeCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.onTap,
-    this.color = AppColors.card,
+    this.color,
+    this.dark = false,
+    this.borderColor,
   });
 
   final Widget child;
   final EdgeInsets padding;
   final VoidCallback? onTap;
-  final Color color;
+  final Color? color;
+  final bool dark;
+  final Color? borderColor;
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final card = Container(
       width: double.infinity,
+      alignment: Alignment.topLeft,
       padding: padding,
       decoration: BoxDecoration(
-        color: color,
+        color: color ?? colors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: AppColors.stroke),
+        border: Border.all(color: borderColor ?? colors.stroke),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow,
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: child,
     );
@@ -216,7 +276,7 @@ class AssetPhoto extends StatelessWidget {
               width: double.infinity,
               fit: fit,
               alignment: alignment,
-              errorBuilder: (_, __, ___) => Image.asset(
+              errorBuilder: (context, error, stackTrace) => Image.asset(
                 AppAssets.boutique,
                 height: height,
                 width: double.infinity,
@@ -278,7 +338,12 @@ class SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final heading = Text(title, style: Theme.of(context).textTheme.displayMedium);
+    final heading = Text(
+      title,
+      style: Theme.of(context).textTheme.displayMedium?.copyWith(
+            color: AppColors.of(context).onDark,
+          ),
+    );
     if (center) {
       return Column(
         children: [
@@ -290,22 +355,31 @@ class SectionTitle extends StatelessWidget {
         ],
       );
     }
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+        heading,
+        if (subtitle != null || action != null) ...[
+          const SizedBox(height: 4),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              heading,
-              if (subtitle != null) ...[
-                const SizedBox(height: 4),
-                Text(subtitle!),
-              ],
+              if (subtitle != null)
+                Expanded(
+                  child: Text(
+                    subtitle!,
+                    style: TextStyle(
+                      color: AppColors.of(context).muted,
+                      fontSize: 14,
+                    ),
+                  ),
+                )
+              else
+                const Spacer(),
+              if (action != null) action!,
             ],
           ),
-        ),
-        ?action,
+        ],
       ],
     );
   }
@@ -322,10 +396,10 @@ class PriceTag extends StatelessWidget {
     return Text(
       value,
       style: TextStyle(
-        fontFamily: 'BebasNeue',
-        fontSize: large ? 32 : 22,
+        fontFamily: 'Manrope',
+        fontSize: large ? 28 : 18,
+        fontWeight: FontWeight.w700,
         color: AppColors.gold,
-        letterSpacing: 0.6,
       ),
     );
   }

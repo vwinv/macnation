@@ -33,6 +33,14 @@ class ServiceItem {
   }
 }
 
+const cartMaxQty = 10;
+
+int clampCartQty(int value) {
+  if (value < 1) return 1;
+  if (value > cartMaxQty) return cartMaxQty;
+  return value;
+}
+
 class Product {
   const Product({
     required this.id,
@@ -49,6 +57,57 @@ class Product {
   final String description;
   final int price;
   final String image;
+
+  factory Product.fromJson(Map<String, dynamic> json) {
+    return Product(
+      id: json['id'] as String? ?? '',
+      name: json['name'] as String? ?? '',
+      category: json['category'] as String? ?? '',
+      description: json['description'] as String? ?? '',
+      price: (json['price'] as num?)?.toInt() ?? 0,
+      image: json['image'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'category': category,
+        'description': description,
+        'price': price,
+        'image': image,
+      };
+}
+
+class CartLine {
+  const CartLine({required this.product, this.qty = 1});
+
+  final Product product;
+  final int qty;
+
+  int get total => product.price * qty;
+
+  CartLine copyWith({int? qty}) => CartLine(
+        product: product,
+        qty: qty ?? this.qty,
+      );
+
+  factory CartLine.fromJson(Map<String, dynamic> json) {
+    final productJson = json['product'];
+    final product = productJson is Map
+        ? Product.fromJson(Map<String, dynamic>.from(productJson))
+        : Product.fromJson(json);
+    return CartLine(
+      product: product,
+      qty: clampCartQty((json['qty'] as num?)?.toInt() ?? 1),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        ...product.toJson(),
+        'product': product.toJson(),
+        'qty': qty,
+      };
 }
 
 class MembershipPlan {
@@ -128,7 +187,11 @@ class TimeSlot {
   final String? end;
   final String? label;
 
-  String get display => (label != null && label!.isNotEmpty) ? label! : time;
+  String get display {
+    if (label != null && label!.isNotEmpty) return label!;
+    if (end != null && end!.isNotEmpty) return '$time – $end';
+    return time;
+  }
 }
 
 class OpeningHour {

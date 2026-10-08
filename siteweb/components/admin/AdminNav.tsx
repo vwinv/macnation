@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { List, X } from "@phosphor-icons/react";
+import ThemeToggle from "@/components/ThemeToggle";
+import Logo from "@/components/Logo";
 
 const LINKS = [
   { href: "/admin", label: "Tableau de bord" },
@@ -12,11 +13,13 @@ const LINKS = [
   { href: "/admin/commandes", label: "Commandes" },
   { href: "/admin/abonnements", label: "Abonnements" },
   { href: "/admin/services", label: "Catalogue" },
+  { href: "/admin/contenu", label: "Contenu du site" },
+  { href: "/admin/blog", label: "Blog" },
+  { href: "/admin/notifications", label: "Notifications" },
   { href: "/admin/factures", label: "Factures" },
   { href: "/admin/paiements", label: "Paiements" },
   { href: "/admin/caisse", label: "Caisse" },
   { href: "/admin/compta", label: "Compta" },
-  { href: "/admin/candidatures", label: "Candidatures" },
   { href: "/admin/clients", label: "Clients" },
 ];
 
@@ -55,16 +58,19 @@ export default function AdminNav() {
     <>
       <div className="sticky top-0 z-20 flex items-center justify-between border-b border-black/10 bg-white px-4 py-3 no-print md:hidden">
         <Link href="/admin" aria-label="MAC NATION" className="inline-flex items-center">
-          <Image src="/logo-square-dark.svg" alt="MAC NATION" width={48} height={48} className="h-12 w-12" />
+          <Logo className="h-12 w-28 dark:invert" onLight />
         </Link>
-        <button
-          type="button"
-          aria-label="Ouvrir le menu"
-          onClick={() => setOpen(true)}
-          className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg hover:bg-black/5"
-        >
-          <List size={20} />
-        </button>
+        <div className="flex items-center gap-1">
+          <ThemeToggle tone="onSurface" />
+          <button
+            type="button"
+            aria-label="Ouvrir le menu"
+            onClick={() => setOpen(true)}
+            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-lg hover:bg-black/5"
+          >
+            <List size={20} />
+          </button>
+        </div>
       </div>
       {open ? (
         <button
@@ -81,7 +87,7 @@ export default function AdminNav() {
       >
         <div className="relative px-5 pb-2 pt-8">
           <Link href="/admin" aria-label="MAC NATION" className="flex justify-center">
-            <Image src="/logo-square-dark.svg" alt="MAC NATION" width={88} height={88} className="h-[5.5rem] w-[5.5rem]" />
+            <Logo className="h-16 w-40 dark:invert" onLight />
           </Link>
           <button
             type="button"
@@ -93,6 +99,9 @@ export default function AdminNav() {
           </button>
         </div>
         <nav className="mt-8 flex flex-1 flex-col gap-1 px-3">{links}</nav>
+        <div className="px-3 pb-2">
+          <ThemeToggle variant="pills" />
+        </div>
         <button
           type="button"
           onClick={() => void logout()}

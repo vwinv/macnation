@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
+import CatalogImage from "@/components/CatalogImage";
 import Link from "next/link";
 import { motion, useReducedMotion } from "motion/react";
 import { assets } from "@/lib/assets";
@@ -63,7 +63,17 @@ function ParticleField() {
   return <canvas ref={canvasRef} className="block h-full w-full" />;
 }
 
-export default function Hero() {
+export default function Hero({
+  title = "Un lieu. Une nation. Une expérience.",
+  cta = "Prendre rendez-vous",
+  secondaryCta = "Faire un abonnement",
+  image = assets.hero,
+}: {
+  title?: string;
+  cta?: string;
+  secondaryCta?: string;
+  image?: string;
+}) {
   const prefersReduced = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -85,10 +95,9 @@ export default function Hero() {
       >
         <div className="mask-radial-harsh absolute top-[28%] z-1 h-[62%] w-[92%] bg-background sm:top-[18%]" />
         <div className="relative z-2 h-[92%] w-full scale-[1.15] sm:h-[90%] sm:w-[92%] md:scale-[1.08]">
-          <Image
-            src={assets.hero}
+          <CatalogImage
+            src={image}
             alt="Barbers et clients au salon MAC NATION, Nord Foire"
-            fill
             priority
             sizes="100vw"
             className="object-cover object-[50%_38%]"
@@ -98,12 +107,12 @@ export default function Hero() {
 
       <div className="relative z-10 flex max-w-full flex-col items-center justify-center pb-13 sm:pb-0">
         <motion.h1
-          className="neon-text relative block max-w-full p-4 px-5 text-center text-[45px] leading-[normal] font-bebas font-bold text-white uppercase drop-shadow-[0_2px_16px_rgba(0,0,0,0.55)] sm:whitespace-pre sm:text-[55px]"
+          className="neon-text relative block max-w-full p-4 px-5 text-center text-[45px] leading-[normal] font-bebas font-bold text-white uppercase drop-shadow-[0_2px_16px_rgba(0,0,0,0.55)] sm:text-[55px]"
           initial={{ opacity: 0, scale: 1.3 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: reduce ? 0 : 1, delay: reduce ? 0 : 0.55, ease: [0.16, 1, 0.3, 1] }}
         >
-          Un lieu. Une nation. Une expérience.
+          {title}
         </motion.h1>
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -116,14 +125,14 @@ export default function Hero() {
                 href="/rendez-vous"
                 className="bbx-shine-sweep btn-gold flex cursor-pointer items-center justify-center gap-x-3 rounded-[10px] px-3.5 py-3.5 text-md font-medium transition-all duration-300 active:scale-[0.98] sm:px-6 sm:text-lg"
               >
-                Prendre rendez-vous
+                {cta}
               </Link>
             </div>
             <Link
-              href="#equipe"
+              href="/abonnements"
               className="btn-black inline-flex h-[52px] items-center justify-center rounded-[10px] px-5 text-sm font-medium transition-all duration-300 active:scale-[0.98] sm:text-base"
             >
-              Candidater
+              {secondaryCta}
             </Link>
           </div>
         </motion.div>

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { BookingsModule } from './bookings/bookings.module';
@@ -12,6 +13,7 @@ import { ContactModule } from './contact/contact.module';
 import { HealthController } from './health.controller';
 import { InvoicesModule } from './invoices/invoices.module';
 import { NotifyModule } from './notify/notify.module';
+import { PushModule } from './push/push.module';
 import { OauthModule } from './oauth/oauth.module';
 import { PaydunyaModule } from './paydunya/paydunya.module';
 import { PaytechModule } from './paytech/paytech.module';
@@ -21,10 +23,12 @@ import { StoreModule } from './store/store.module';
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     PrismaModule,
     StoreModule,
     CatalogModule,
     NotifyModule,
+    PushModule,
     OauthModule,
     PaydunyaModule,
     PaytechModule,

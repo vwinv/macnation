@@ -73,12 +73,9 @@ export const pageImages = {
 } as const;
 
 export const navLinks = [
-  { href: "/the-brand", label: "La marque" },
   { href: "/services", label: "Catalogue" },
-  { href: "/salon", label: "Le salon" },
   { href: "/boutique", label: "Boutique" },
   { href: "/abonnements", label: "Abonnements" },
-  { href: "/blog", label: "Blog" },
 ] as const;
 
 export const salonInfo = {

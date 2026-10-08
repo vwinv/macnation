@@ -3,15 +3,18 @@ import { join } from 'path';
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from '@prisma/client';
 import {
   cloudinaryFolder,
   configureCloudinary,
   destroyProductImage,
+  siteFolder,
   uploadProductImage,
 } from '../common/cloudinary';
 import { durationMinutes } from '../common/schedule';
 import {
   ARTICLES,
+  DEFAULT_SITE_CONTENT,
   findArticle,
   findJob,
   JOBS,
@@ -19,6 +22,11 @@ import {
   resolveServiceId,
   REVIEWS,
   SALON,
+  type CatalogReview,
+  type SiteBrandValue,
+  type SiteContentPayload,
+  type SiteCtaItem,
+  type SiteHistoryItem,
 } from './catalog.data';
 
 const DEFAULT_IMAGE = '/photos/people/people-cut.jpg';
@@ -52,14 +60,190 @@ function productPhotoFilename(path: string) {
   return match?.[1] || null;
 }
 
-function slugify(value: string) {
+function slugify(value: string, fallback = 'service') {
   const slug = value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
-  return slug || 'service';
+  return slug || fallback;
+}
+
+const MONTHS_FR = [
+  'janvier',
+  'février',
+  'mars',
+  'avril',
+  'mai',
+  'juin',
+  'juillet',
+  'août',
+  'septembre',
+  'octobre',
+  'novembre',
+  'décembre',
+];
+
+function formatDateFr(iso: string) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!match) return iso;
+  const day = Number(match[3]);
+  const month = Number(match[2]);
+  return `${day} ${MONTHS_FR[month - 1] || match[2]} ${match[1]}`;
+}
+
+function todayIso() {
+  const date = new Date();
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+}
+
+function asText(value: unknown, fallback = '') {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function asReviews(value: unknown): CatalogReview[] {
+  if (!Array.isArray(value)) return DEFAULT_SITE_CONTENT.reviews;
+  return value
+    .map((item) => {
+      const row = (item || {}) as Record<string, unknown>;
+      const author = asText(row.author);
+      const quote = asText(row.quote);
+      if (!author || !quote) return null;
+      return {
+        author,
+        quote,
+        rating: asText(row.rating, '5/5'),
+        city: asText(row.city, 'Nord Foire, Dakar'),
+      };
+    })
+    .filter((item): item is CatalogReview => Boolean(item));
+}
+
+function asCtaItems(value: unknown): SiteCtaItem[] {
+  if (!Array.isArray(value) || !value.length) return DEFAULT_SITE_CONTENT.ctaItems;
+  const items = value
+    .slice(0, 3)
+    .map((item, index) => {
+      const row = (item || {}) as Record<string, unknown>;
+      const fallback = DEFAULT_SITE_CONTENT.ctaItems[index] || DEFAULT_SITE_CONTENT.ctaItems[0];
+      return {
+        href: asText(row.href, fallback.href),
+        kicker: asText(row.kicker, fallback.kicker),
+        title: asText(row.title, fallback.title),
+        dark: row.dark === undefined ? fallback.dark : row.dark === true || row.dark === 'true',
+      };
+    })
+    .filter((item) => !/equipe|career/i.test(item.href));
+  return items.length ? items : DEFAULT_SITE_CONTENT.ctaItems;
+}
+
+function asBrandValues(value: unknown): SiteBrandValue[] {
+  const defaults = DEFAULT_SITE_CONTENT.brandValues;
+  const list = Array.isArray(value) ? value : [];
+  return defaults.map((fallback, index) => {
+    const row = (list[index] || {}) as Record<string, unknown>;
+    return {
+      title: asText(row.title, fallback.title),
+      body: asText(row.body, fallback.body),
+    };
+  });
+}
+
+function asHistory(value: unknown): SiteHistoryItem[] {
+  const defaults = DEFAULT_SITE_CONTENT.brandHistory;
+  const list = Array.isArray(value) ? value : [];
+  return defaults.map((fallback, index) => {
+    const row = (list[index] || {}) as Record<string, unknown>;
+    return {
+      year: asText(row.year, fallback.year),
+      title: asText(row.title, fallback.title),
+      body: asText(row.body, fallback.body),
+    };
+  });
+}
+
+function asImageUrl(value: unknown, fallback: string) {
+  return typeof value === 'string' && value.trim() ? value.trim() : fallback;
+}
+
+function asImageList(value: unknown, fallback: string[]) {
+  const list = Array.isArray(value) ? value : [];
+  return fallback.map((item, index) => asImageUrl(list[index], item));
+}
+
+function asImages(value: unknown): SiteContentPayload['images'] {
+  const payload = (value || {}) as Record<string, unknown>;
+  const defaults = DEFAULT_SITE_CONTENT.images;
+  return {
+    hero: asImageUrl(payload.hero, defaults.hero),
+    brandMosaic: asImageList(payload.brandMosaic, defaults.brandMosaic),
+    brandPlace: asImageUrl(payload.brandPlace, defaults.brandPlace),
+    brandOffer: asImageUrl(payload.brandOffer, defaults.brandOffer),
+    salonBanner: asImageUrl(payload.salonBanner, defaults.salonBanner),
+    salonGallery: asImageList(payload.salonGallery, defaults.salonGallery),
+    boutique: asImageUrl(payload.boutique, defaults.boutique),
+    plans: asImageUrl(payload.plans, defaults.plans),
+    cta: asImageUrl(payload.cta, defaults.cta),
+  };
+}
+
+export function normalizeSiteContent(raw: unknown): SiteContentPayload {
+  const payload = (raw || {}) as Record<string, unknown>;
+  return {
+    heroTitle: asText(payload.heroTitle, DEFAULT_SITE_CONTENT.heroTitle),
+    heroCta: asText(payload.heroCta, DEFAULT_SITE_CONTENT.heroCta),
+    heroSecondaryCta: (() => {
+      const value = asText(
+        payload.heroSecondaryCta,
+        DEFAULT_SITE_CONTENT.heroSecondaryCta,
+      );
+      return value === 'Candidater' ? DEFAULT_SITE_CONTENT.heroSecondaryCta : value;
+    })(),
+    reviewsTitle: asText(payload.reviewsTitle, DEFAULT_SITE_CONTENT.reviewsTitle),
+    reviewsSubtitle: asText(
+      payload.reviewsSubtitle,
+      DEFAULT_SITE_CONTENT.reviewsSubtitle,
+    ),
+    boutiqueTitle: asText(payload.boutiqueTitle, DEFAULT_SITE_CONTENT.boutiqueTitle),
+    boutiqueText: asText(payload.boutiqueText, DEFAULT_SITE_CONTENT.boutiqueText),
+    boutiqueCta: asText(payload.boutiqueCta, DEFAULT_SITE_CONTENT.boutiqueCta),
+    plansTitle: asText(payload.plansTitle, DEFAULT_SITE_CONTENT.plansTitle),
+    plansText: asText(payload.plansText, DEFAULT_SITE_CONTENT.plansText),
+    plansCta: asText(payload.plansCta, DEFAULT_SITE_CONTENT.plansCta),
+    joinKicker: asText(payload.joinKicker, DEFAULT_SITE_CONTENT.joinKicker),
+    joinTitle: asText(payload.joinTitle, DEFAULT_SITE_CONTENT.joinTitle),
+    joinText: asText(payload.joinText, DEFAULT_SITE_CONTENT.joinText),
+    ctaTitle: asText(payload.ctaTitle, DEFAULT_SITE_CONTENT.ctaTitle),
+    ctaItems: asCtaItems(payload.ctaItems),
+    brandKicker: asText(payload.brandKicker, DEFAULT_SITE_CONTENT.brandKicker),
+    brandTitle: asText(payload.brandTitle, DEFAULT_SITE_CONTENT.brandTitle),
+    brandHighlight: asText(payload.brandHighlight, DEFAULT_SITE_CONTENT.brandHighlight),
+    brandText: asText(payload.brandText, DEFAULT_SITE_CONTENT.brandText),
+    brandValuesTitle: asText(payload.brandValuesTitle, DEFAULT_SITE_CONTENT.brandValuesTitle),
+    brandValuesText: asText(payload.brandValuesText, DEFAULT_SITE_CONTENT.brandValuesText),
+    brandValues: asBrandValues(payload.brandValues),
+    brandPlaceTitle: asText(payload.brandPlaceTitle, DEFAULT_SITE_CONTENT.brandPlaceTitle),
+    brandPlaceText: asText(payload.brandPlaceText, DEFAULT_SITE_CONTENT.brandPlaceText),
+    brandOfferTitle: asText(payload.brandOfferTitle, DEFAULT_SITE_CONTENT.brandOfferTitle),
+    brandOfferText: asText(payload.brandOfferText, DEFAULT_SITE_CONTENT.brandOfferText),
+    brandHistoryTitle: asText(payload.brandHistoryTitle, DEFAULT_SITE_CONTENT.brandHistoryTitle),
+    brandHistory: asHistory(payload.brandHistory),
+    salonName: asText(payload.salonName, DEFAULT_SITE_CONTENT.salonName),
+    salonKicker: asText(payload.salonKicker, DEFAULT_SITE_CONTENT.salonKicker),
+    salonTitle: asText(payload.salonTitle, DEFAULT_SITE_CONTENT.salonTitle),
+    salonSubtitle: asText(payload.salonSubtitle, DEFAULT_SITE_CONTENT.salonSubtitle),
+    salonText: asText(payload.salonText, DEFAULT_SITE_CONTENT.salonText),
+    salonCta: asText(payload.salonCta, DEFAULT_SITE_CONTENT.salonCta),
+    salonGalleryTitle: asText(payload.salonGalleryTitle, DEFAULT_SITE_CONTENT.salonGalleryTitle),
+    salonAddress: asText(payload.salonAddress, DEFAULT_SITE_CONTENT.salonAddress),
+    salonCity: asText(payload.salonCity, DEFAULT_SITE_CONTENT.salonCity),
+    salonCountry: asText(payload.salonCountry, DEFAULT_SITE_CONTENT.salonCountry),
+    salonHours: asText(payload.salonHours, DEFAULT_SITE_CONTENT.salonHours),
+    salonPhone: asText(payload.salonPhone, DEFAULT_SITE_CONTENT.salonPhone),
+    reviews: asReviews(payload.reviews),
+    images: asImages(payload.images),
+  };
 }
 
 export type ServiceInput = {
@@ -103,6 +287,16 @@ export type PlanInput = {
   perks?: string[];
   visits?: number;
   boutiquePercent?: number;
+  active?: boolean;
+};
+
+export type ArticleInput = {
+  title: string;
+  category?: string;
+  dateIso?: string;
+  excerpt?: string;
+  body?: string;
+  image?: string;
   active?: boolean;
 };
 
@@ -183,8 +377,21 @@ export class CatalogService {
     };
   }
 
-  salon() {
-    return { ...SALON, image: this.imageUrl(SALON.image) };
+  async salon() {
+    const content = await this.siteContent();
+    const address = content.salonAddress || SALON.address;
+    const city = content.salonCity || SALON.city;
+    const country = content.salonCountry || SALON.country;
+    return {
+      name: content.salonName || SALON.name,
+      slug: SALON.slug,
+      address: `${address}\n${city}, ${country}`,
+      city,
+      country,
+      hours: content.salonHours || SALON.hours,
+      phone: content.salonPhone || SALON.phone,
+      image: this.imageUrl(SALON.image),
+    };
   }
 
   async services() {
@@ -390,7 +597,7 @@ export class CatalogService {
     return urls;
   }
 
-  async storeProductPhoto(file: UploadedPhoto) {
+  async storeProductPhoto(file: UploadedPhoto, folder?: string) {
     if (!file?.buffer?.length) {
       throw new BadRequestException('Ajoute une photo.');
     }
@@ -401,7 +608,11 @@ export class CatalogService {
       throw new BadRequestException('Envoie un JPG, PNG ou WEBP.');
     }
     configureCloudinary(this.config);
-    return uploadProductImage(file.buffer, cloudinaryFolder(this.config));
+    return uploadProductImage(file.buffer, folder ?? cloudinaryFolder(this.config));
+  }
+
+  async storeSitePhoto(file: UploadedPhoto) {
+    return this.storeProductPhoto(file, siteFolder(this.config));
   }
 
   async readProductPhoto(filename: string) {
@@ -665,20 +876,236 @@ export class CatalogService {
     return row ? this.toPublicPlan(row) : null;
   }
 
-  articles() {
+  private async ensureArticles() {
+    const count = await this.prisma.article.count();
+    if (count > 0) return;
+    await this.prisma.article.createMany({
+      data: ARTICLES.map((item, index) => ({
+        slug: item.id,
+        title: item.title,
+        category: item.category,
+        dateIso: item.dateIso,
+        excerpt: item.excerpt,
+        body: item.body,
+        image: item.image,
+        sortOrder: index,
+        active: true,
+      })),
+      skipDuplicates: true,
+    });
+  }
+
+  private toPublicArticle(row: {
+    slug: string;
+    title: string;
+    category: string;
+    dateIso: string;
+    excerpt: string;
+    body: string;
+    image: string;
+  }) {
+    return {
+      id: row.slug,
+      title: row.title,
+      category: row.category,
+      date: formatDateFr(row.dateIso),
+      dateIso: row.dateIso,
+      excerpt: row.excerpt,
+      body: row.body,
+      image: this.imageUrl(row.image),
+    };
+  }
+
+  private toAdminArticle(row: {
+    id: string;
+    slug: string;
+    title: string;
+    category: string;
+    dateIso: string;
+    excerpt: string;
+    body: string;
+    image: string;
+    active: boolean;
+    sortOrder: number;
+    pushNotifiedAt?: Date | null;
+  }) {
+    return {
+      id: row.id,
+      slug: row.slug,
+      title: row.title,
+      category: row.category,
+      date: formatDateFr(row.dateIso),
+      dateIso: row.dateIso,
+      excerpt: row.excerpt,
+      body: row.body,
+      image: row.image,
+      active: row.active,
+      sortOrder: row.sortOrder,
+      pushNotifiedAt: row.pushNotifiedAt ? row.pushNotifiedAt.toISOString() : null,
+    };
+  }
+
+  private async uniqueArticleSlug(base: string, ignoreId?: string) {
+    const root = slugify(base, 'article');
+    let slug = root;
+    let n = 2;
+    while (true) {
+      const existing = await this.prisma.article.findUnique({ where: { slug } });
+      if (!existing || existing.id === ignoreId) return slug;
+      slug = `${root}-${n++}`;
+    }
+  }
+
+  async findArticleRow(id: string, activeOnly = false) {
+    return this.prisma.article.findFirst({
+      where: {
+        OR: [{ slug: id }, { id }],
+        ...(activeOnly ? { active: true } : {}),
+      },
+    });
+  }
+
+  async listAdminArticles() {
+    await this.ensureArticles();
+    const rows = await this.prisma.article.findMany({
+      orderBy: [{ active: 'desc' }, { dateIso: 'desc' }, { sortOrder: 'asc' }],
+    });
+    return rows.map((row) => this.toAdminArticle(row));
+  }
+
+  async createArticle(input: ArticleInput) {
+    const title = input.title.trim();
+    const last = await this.prisma.article.aggregate({ _max: { sortOrder: true } });
+    const dateIso = /^\d{4}-\d{2}-\d{2}$/.test(input.dateIso || '')
+      ? (input.dateIso as string)
+      : todayIso();
+    const row = await this.prisma.article.create({
+      data: {
+        slug: await this.uniqueArticleSlug(title),
+        title,
+        category: (input.category || 'Nos actus').trim() || 'Nos actus',
+        dateIso,
+        excerpt: (input.excerpt || '').trim(),
+        body: (input.body || input.excerpt || '').trim(),
+        image: (input.image || DEFAULT_IMAGE).trim() || DEFAULT_IMAGE,
+        sortOrder: (last._max.sortOrder ?? -1) + 1,
+        active: input.active !== false,
+      },
+    });
+    return this.toAdminArticle(row);
+  }
+
+  async updateArticle(id: string, input: Partial<ArticleInput>) {
+    const current = await this.findArticleRow(id);
+    if (!current) return null;
+    const title = input.title?.trim();
+    const dateIso =
+      input.dateIso !== undefined
+        ? /^\d{4}-\d{2}-\d{2}$/.test(input.dateIso)
+          ? input.dateIso
+          : current.dateIso
+        : undefined;
+    const row = await this.prisma.article.update({
+      where: { id: current.id },
+      data: {
+        ...(title ? { title } : {}),
+        ...(input.category != null
+          ? { category: input.category.trim() || current.category }
+          : {}),
+        ...(dateIso ? { dateIso } : {}),
+        ...(input.excerpt != null ? { excerpt: input.excerpt.trim() } : {}),
+        ...(input.body != null ? { body: input.body.trim() } : {}),
+        ...(input.image != null
+          ? { image: input.image.trim() || DEFAULT_IMAGE }
+          : {}),
+        ...(input.active != null ? { active: input.active } : {}),
+      },
+    });
+    if (input.image && input.image !== current.image) {
+      await this.removeStoredProductPhoto(current.image);
+    }
+    return this.toAdminArticle(row);
+  }
+
+  async removeArticle(id: string) {
+    const current = await this.findArticleRow(id);
+    if (!current) return null;
+    await this.prisma.article.delete({ where: { id: current.id } });
+    await this.removeStoredProductPhoto(current.image);
+    return this.toAdminArticle(current);
+  }
+
+  async articles() {
+    try {
+      await this.ensureArticles();
+      const rows = await this.prisma.article.findMany({
+        where: { active: true },
+        orderBy: [{ dateIso: 'desc' }, { sortOrder: 'asc' }],
+      });
+      if (rows.length) return rows.map((row) => this.toPublicArticle(row));
+    } catch {
+      /* fallback to static copy */
+    }
     return ARTICLES.map((item) => ({
       ...item,
       image: this.imageUrl(item.image),
     }));
   }
 
-  article(id: string) {
+  async article(id: string) {
+    try {
+      await this.ensureArticles();
+      const row = await this.findArticleRow(id, true);
+      if (row) return this.toPublicArticle(row);
+    } catch {
+      /* fallback to static copy */
+    }
     const item = findArticle(id);
     return item ? { ...item, image: this.imageUrl(item.image) } : null;
   }
 
-  reviews() {
-    return REVIEWS;
+  async reviews() {
+    const content = await this.siteContent();
+    return content.reviews.length ? content.reviews : REVIEWS;
+  }
+
+  async siteContent() {
+    try {
+      let row = await this.prisma.siteContent.findUnique({
+        where: { id: 'home' },
+      });
+      if (!row) {
+        row = await this.prisma.siteContent.create({
+          data: { id: 'home', payload: DEFAULT_SITE_CONTENT as Prisma.InputJsonValue },
+        });
+      }
+      return normalizeSiteContent(row.payload);
+    } catch {
+      return DEFAULT_SITE_CONTENT;
+    }
+  }
+
+  async saveSiteContent(raw: unknown) {
+    const incoming =
+      raw && typeof raw === 'object' && !Array.isArray(raw)
+        ? (raw as Record<string, unknown>)
+        : {};
+    const current = await this.siteContent();
+    const incomingImages =
+      incoming.images && typeof incoming.images === 'object' && !Array.isArray(incoming.images)
+        ? (incoming.images as Record<string, unknown>)
+        : {};
+    const payload = normalizeSiteContent({
+      ...current,
+      ...incoming,
+      images: { ...current.images, ...incomingImages },
+    });
+    const row = await this.prisma.siteContent.upsert({
+      where: { id: 'home' },
+      create: { id: 'home', payload: payload as Prisma.InputJsonValue },
+      update: { payload: payload as Prisma.InputJsonValue },
+    });
+    return normalizeSiteContent(row.payload);
   }
 
   async productReviews(id: string, clientId?: string) {
@@ -847,12 +1274,12 @@ export class CatalogService {
 
   async all() {
     return {
-      salon: this.salon(),
+      salon: await this.salon(),
       services: await this.services(),
       products: await this.products(),
       plans: await this.plans(),
-      articles: this.articles(),
-      reviews: this.reviews(),
+      articles: await this.articles(),
+      reviews: await this.reviews(),
       jobs: this.jobs(),
     };
   }

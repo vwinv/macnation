@@ -25,6 +25,82 @@ export type CatalogJob = {
   blurb: string;
 };
 
+export type SiteCtaItem = {
+  href: string;
+  kicker: string;
+  title: string;
+  dark: boolean;
+};
+
+export type SiteBrandValue = {
+  title: string;
+  body: string;
+};
+
+export type SiteHistoryItem = {
+  year: string;
+  title: string;
+  body: string;
+};
+
+export type SiteImagesPayload = {
+  hero: string;
+  brandMosaic: string[];
+  brandPlace: string;
+  brandOffer: string;
+  salonBanner: string;
+  salonGallery: string[];
+  boutique: string;
+  plans: string;
+  cta: string;
+};
+
+export type SiteContentPayload = {
+  heroTitle: string;
+  heroCta: string;
+  heroSecondaryCta: string;
+  reviewsTitle: string;
+  reviewsSubtitle: string;
+  boutiqueTitle: string;
+  boutiqueText: string;
+  boutiqueCta: string;
+  plansTitle: string;
+  plansText: string;
+  plansCta: string;
+  joinKicker: string;
+  joinTitle: string;
+  joinText: string;
+  ctaTitle: string;
+  ctaItems: SiteCtaItem[];
+  brandKicker: string;
+  brandTitle: string;
+  brandHighlight: string;
+  brandText: string;
+  brandValuesTitle: string;
+  brandValuesText: string;
+  brandValues: SiteBrandValue[];
+  brandPlaceTitle: string;
+  brandPlaceText: string;
+  brandOfferTitle: string;
+  brandOfferText: string;
+  brandHistoryTitle: string;
+  brandHistory: SiteHistoryItem[];
+  salonName: string;
+  salonKicker: string;
+  salonTitle: string;
+  salonSubtitle: string;
+  salonText: string;
+  salonCta: string;
+  salonGalleryTitle: string;
+  salonAddress: string;
+  salonCity: string;
+  salonCountry: string;
+  salonHours: string;
+  salonPhone: string;
+  reviews: CatalogReview[];
+  images: SiteImagesPayload;
+};
+
 export const SALON = {
   name: 'MAC NATION',
   slug: 'nord-foire',
@@ -205,6 +281,127 @@ export function resolveProductId(id: string) {
 export function findArticle(id: string) {
   return ARTICLES.find((item) => item.id === id);
 }
+
+export const DEFAULT_SITE_IMAGES: SiteImagesPayload = {
+  hero: '/photos/people/people-hero-casual.jpg',
+  brandMosaic: [
+    '/photos/people/people-reception-match.jpg',
+    '/photos/04.jpg',
+    '/photos/people/people-waiting-casual.jpg',
+    '/photos/14.jpg',
+  ],
+  brandPlace: '/photos/people/people-cut.jpg',
+  brandOffer: '/photos/people/people-boutique-casual.jpg',
+  salonBanner: '/photos/reception-mac-nation.jpg',
+  salonGallery: [
+    '/photos/people/people-hero-casual.jpg',
+    '/photos/reception-mac-nation.jpg',
+    '/photos/people/people-waiting-casual.jpg',
+    '/photos/18.jpg',
+    '/photos/people/people-cut.jpg',
+    '/photos/03.jpg',
+    '/photos/people/people-shampoo-casual.jpg',
+    '/photos/15.jpg',
+    '/photos/people/people-station.jpg',
+    '/photos/17.jpg',
+    '/photos/people/people-barber.jpg',
+    '/photos/23.jpg',
+  ],
+  boutique: '/photos/people/people-boutique-casual.jpg',
+  plans: '/photos/people/people-waiting-casual.jpg',
+  cta: '/photos/people/people-waiting-casual.jpg',
+};
+
+export const DEFAULT_SITE_CONTENT: SiteContentPayload = {
+  heroTitle: 'Un lieu. Une nation. Une expérience.',
+  heroCta: 'Prendre rendez-vous',
+  heroSecondaryCta: 'Faire un abonnement',
+  reviewsTitle: 'Une expérience saluée par nos clients',
+  reviewsSubtitle: 'Les premiers retours',
+  boutiqueTitle: 'Boutique capillaire',
+  boutiqueText:
+    'Payer par Wave, Orange Money ou Free. Retrait au salon Nord Foire.',
+  boutiqueCta: 'Payer un produit',
+  plansTitle: 'Abonnements',
+  plansText: "Payer l'abonnement en ligne. Wave, Orange Money ou Free Money.",
+  plansCta: 'Payer un abonnement',
+  joinKicker: 'MAC NATION',
+  joinTitle: 'Rejoindre notre équipe',
+  joinText:
+    'Barber, accueil ou candidature spontanée. Envoie ton CV : on lit chaque dossier à Nord Foire.',
+  ctaTitle: "L'histoire s'écrit à Dakar",
+  ctaItems: [
+    {
+      href: '/rendez-vous',
+      kicker: 'En tant que client',
+      title: 'Prendre rendez-vous',
+      dark: false,
+    },
+    {
+      href: '/abonnements',
+      kicker: 'En tant que membre',
+      title: 'Prendre un abonnement',
+      dark: true,
+    },
+  ],
+  brandKicker: 'LA MARQUE',
+  brandTitle: 'Une vision dakaroise du grooming',
+  brandHighlight: 'moderne.',
+  brandText:
+    "Plus qu'une coupe, une nation. Un salon, une boutique, des abonnements. Tout au même endroit.",
+  brandValuesTitle: 'Des valeurs',
+  brandValuesText:
+    "MAC NATION est plus qu'un salon : c'est une vision. La diversité forge le geste. Chaque culture, chaque génération contribue. Un espace où l'effort est valorisé, à Dakar.",
+  brandValues: [
+    {
+      title: 'Marbre et or',
+      body: "Le lieu dicte le geste. Marbre noir, moulures blanches, touches d'or : un salon pensé pour durer, lisible de Nord Foire jusqu'au reste de Dakar.",
+    },
+    {
+      title: 'Un savoir-faire',
+      body: 'Accueil, diagnostic, geste. Un parcours client clair, du premier regard jusqu’au produit emporté.',
+    },
+    {
+      title: 'Un savoir-être',
+      body: "Chacun se sent à sa place. L'équipe incarne la diversité dakaroise et ouvre le salon à toutes les textures.",
+    },
+  ],
+  brandPlaceTitle: 'Un lieu unique',
+  brandPlaceText:
+    "Pour le moment, un seul salon : Nord Foire, en face du service d'hygiène. Toute l'attention sur une adresse, une équipe, un standard.",
+  brandOfferTitle: 'Salon, boutique, abonnement',
+  brandOfferText:
+    "La chaise, les produits, le rythme mensuel. On ne sépare pas la coupe de l'entretien. C'est le même univers, du rendez-vous jusqu'au kit emporté.",
+  brandHistoryTitle: 'Notre histoire',
+  brandHistory: [
+    {
+      year: '2025',
+      title: "L'idée",
+      body: "MAC NATION naît à Dakar d'une envie simple : un salon où la coupe, la barbe et les produits vivent sous le même toit, sans distinction de texture.",
+    },
+    {
+      year: '2026',
+      title: 'Nord Foire',
+      body: "Ouverture du premier salon, en face du service d'hygiène. Un lieu unique, pensé comme un second espace de vie pour l'homme dakarois.",
+    },
+  ],
+  salonName: 'MAC NATION',
+  salonKicker: 'LE SALON',
+  salonTitle: 'MAC NATION Nord Foire',
+  salonSubtitle:
+    "Le premier salon. Le seul, pour le moment. Dakar, en face du service d'hygiène.",
+  salonText:
+    'Marbre noir, moulures blanches, or sur les consoles. Nos barbers maîtrisent fades, barbe et coupes pour tous les types de cheveux. Lavabo, soins, boutique capillaire sur place. Abonnements pour ceux qui veulent un rythme, pas une surprise.',
+  salonCta: 'Réserver',
+  salonGalleryTitle: 'Quelques images',
+  salonAddress: "Nord Foire, en face du service d'hygiène",
+  salonCity: 'Dakar',
+  salonCountry: 'Sénégal',
+  salonHours: 'Lun–Sam 10h–21h · Dim 12h–20h',
+  salonPhone: '+221 77 000 00 00',
+  reviews: REVIEWS,
+  images: DEFAULT_SITE_IMAGES,
+};
 
 export function findJob(id: string) {
   return JOBS.find((item) => item.id === id);

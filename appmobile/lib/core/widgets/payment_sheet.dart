@@ -19,7 +19,7 @@ Future<PaymentMethod?> showPaymentSheet(
 }) {
   return showModalBottomSheet<PaymentMethod>(
     context: context,
-    backgroundColor: AppColors.card,
+    backgroundColor: AppColors.of(context).card,
     isScrollControlled: true,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
@@ -50,30 +50,31 @@ Future<PaymentMethod?> showPaymentSheet(
                     width: 40,
                     height: 4,
                     decoration: BoxDecoration(
-                      color: Colors.white24,
+                      color: AppColors.of(context).handle,
                       borderRadius: BorderRadius.circular(99),
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                SizedBox(height: 18),
                 Text(title, style: Theme.of(context).textTheme.displaySmall),
-                const SizedBox(height: 6),
+                SizedBox(height: 6),
                 Text(
                   amountLabel,
-                  style: const TextStyle(
-                    fontFamily: 'BebasNeue',
-                    fontSize: 28,
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
                     color: AppColors.gold,
                   ),
                 ),
-                const SizedBox(height: 16),
+                SizedBox(height: 16),
                 for (final method in methods)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: EdgeInsets.only(bottom: 8),
                     child: StrokeCard(
                       color: selected == method
                           ? AppColors.gold.withValues(alpha: 0.12)
-                          : AppColors.cardElevated,
+                          : AppColors.of(context).cardElevated,
                       onTap: () => setModal(() => selected = method),
                       child: Row(
                         children: [
@@ -84,10 +85,10 @@ Future<PaymentMethod?> showPaymentSheet(
                             color: AppColors.gold,
                             size: 20,
                           ),
-                          const SizedBox(width: 12),
+                          SizedBox(width: 12),
                           Text(
                             paymentLabels[method]!,
-                            style: const TextStyle(color: Colors.white),
+                            style: TextStyle(color: AppColors.of(context).onDark),
                           ),
                         ],
                       ),

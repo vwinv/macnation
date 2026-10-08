@@ -1,23 +1,68 @@
 @import "tailwindcss";
 
-@theme {
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --background: #ffffff;
+  --foreground: #000000;
+  --surface: #ffffff;
+  --card: #ffffff;
+  --gold: #e0b12c;
+  --gold-bright: #f0c43a;
+  --gray-50: #fafafa;
+  --gray-100: #f5f5f5;
+  --gray-200: #e5e5e5;
+  --gray-300: #d4d4d4;
+  --gray-400: #4a4a4a;
+  --gray-500: #333333;
+  --gray-600: #1a1a1a;
+  --gray-700: #e5e5e5;
+  --gray-800: #474444;
+  --gray-900: #f5f5f5;
+  --gray-950: #ffffff;
+  --stroke: rgba(0, 0, 0, 0.1);
+  --stroke-soft: rgba(0, 0, 0, 0.05);
+}
+
+html.dark {
+  color-scheme: dark;
+  --background: #050505;
+  --foreground: #ffffff;
+  --surface: #0b0b0b;
+  --card: #151311;
+  --gray-50: #0b0b0b;
+  --gray-100: #111111;
+  --gray-200: #1a1814;
+  --gray-300: #6b7280;
+  --gray-400: #9ca3af;
+  --gray-500: #c4b59a;
+  --gray-600: #e7e5e0;
+  --gray-700: #2a2418;
+  --gray-800: #c4b59a;
+  --gray-900: #1a160c;
+  --gray-950: #151311;
+  --stroke: rgba(255, 255, 255, 0.12);
+  --stroke-soft: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
   --font-sans: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
   --font-bebas: var(--font-poppins), ui-sans-serif, system-ui, sans-serif;
-  --color-background: #ffffff;
-  --color-foreground: #000000;
-  --color-gold: #e0b12c;
-  --color-gold-bright: #f0c43a;
-  --color-gray-50: #fafafa;
-  --color-gray-100: #f5f5f5;
-  --color-gray-200: #e5e5e5;
-  --color-gray-300: #d4d4d4;
-  --color-gray-400: #4a4a4a;
-  --color-gray-500: #333333;
-  --color-gray-600: #1a1a1a;
-  --color-gray-700: #e5e5e5;
-  --color-gray-800: #474444;
-  --color-gray-900: #f5f5f5;
-  --color-gray-950: #ffffff;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-gold: var(--gold);
+  --color-gold-bright: var(--gold-bright);
+  --color-gray-50: var(--gray-50);
+  --color-gray-100: var(--gray-100);
+  --color-gray-200: var(--gray-200);
+  --color-gray-300: var(--gray-300);
+  --color-gray-400: var(--gray-400);
+  --color-gray-500: var(--gray-500);
+  --color-gray-600: var(--gray-600);
+  --color-gray-700: var(--gray-700);
+  --color-gray-800: var(--gray-800);
+  --color-gray-900: var(--gray-900);
+  --color-gray-950: var(--gray-950);
   --spacing-15: 3.75rem;
   --spacing-30: 7.5rem;
   --spacing-35: 8.75rem;
@@ -30,14 +75,19 @@ html {
 }
 
 body {
-  background: var(--color-background);
-  color: var(--color-foreground);
+  background: var(--background);
+  color: var(--foreground);
   font-family: var(--font-sans);
 }
 
 ::selection {
   background: #00000014;
   color: #000;
+}
+
+html.dark ::selection {
+  background: rgba(224, 177, 44, 0.28);
+  color: #fff;
 }
 
 .font-bebas {
@@ -68,6 +118,15 @@ body {
   color: #ffffff;
 }
 
+html.dark .btn-black {
+  background: #151311;
+  box-shadow: inset 0 0 0 1px rgba(196, 181, 154, 0.28);
+}
+
+html.dark .btn-black:hover {
+  background: #1f1c16;
+}
+
 .gold-line {
   background: linear-gradient(90deg, transparent, var(--color-gold), transparent);
 }
@@ -76,7 +135,7 @@ body {
   font-family: var(--font-sans);
   font-weight: 700;
   text-transform: uppercase;
-  color: #000;
+  color: var(--foreground);
   line-height: 1.05;
 }
 
@@ -95,8 +154,20 @@ body {
   );
 }
 
+html.dark .hero-fade-black-white {
+  background-image: linear-gradient(
+    to bottom,
+    #000000 0%,
+    #000000 28%,
+    #050505 48%,
+    #0b0b0b 72%,
+    #151311 88%,
+    #050505 100%
+  );
+}
+
 .subTitle1 {
-  color: #333333;
+  color: var(--gray-500);
   font-size: 0.95rem;
 }
 
@@ -133,10 +204,25 @@ body {
   z-index: 1;
 }
 
+html.dark .stroke-gradient::before {
+  background: linear-gradient(
+    var(--stroke-angle, 135deg),
+    rgba(196, 181, 154, calc(var(--stroke-opacity, 0.16) * 1.4)),
+    rgba(255, 255, 255, 0.04) 42%,
+    rgba(224, 177, 44, calc(var(--stroke-opacity, 0.12) * 1.2))
+  );
+}
+
 .neon-card {
   box-shadow:
     inset 0 1px 0 rgba(0, 0, 0, 0.04),
     0 0 24px rgba(0, 0, 0, 0.06);
+}
+
+html.dark .neon-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 0 28px rgba(224, 177, 44, 0.12);
 }
 
 .bbx-shine-sweep {
@@ -241,9 +327,18 @@ select {
   font: inherit;
 }
 
+html.dark input:-webkit-autofill,
+html.dark textarea:-webkit-autofill,
+html.dark select:-webkit-autofill {
+  -webkit-text-fill-color: #ffffff;
+  caret-color: #ffffff;
+  box-shadow: 0 0 0 1000px #1a160c inset;
+  transition: background-color 9999s ease-out;
+}
+
 .legal h2 {
   font-family: var(--font-sans);
-  color: #000;
+  color: var(--foreground);
   font-size: 1.75rem;
   letter-spacing: 0;
   padding-top: 1.25rem;
@@ -251,6 +346,88 @@ select {
 
 .legal a {
   color: #e0b12c;
+}
+
+html.dark :is(.bg-white) {
+  background-color: var(--card);
+}
+
+html.dark main :is(.bg-black) {
+  background-color: #151311;
+}
+
+html.dark :is(.text-black) {
+  color: var(--foreground);
+}
+
+html.dark :is(.text-black\/70) {
+  color: rgb(255 255 255 / 0.7);
+}
+
+html.dark :is(.text-black\/60) {
+  color: rgb(255 255 255 / 0.6);
+}
+
+html.dark :is(.text-black\/50) {
+  color: rgb(255 255 255 / 0.5);
+}
+
+html.dark :is(.text-black\/45) {
+  color: rgb(255 255 255 / 0.45);
+}
+
+html.dark :is(.text-black\/25) {
+  color: rgb(255 255 255 / 0.25);
+}
+
+html.dark :is(.text-black\/20) {
+  color: rgb(255 255 255 / 0.2);
+}
+
+html.dark :is(.ring-black\/10) {
+  --tw-ring-color: var(--stroke);
+}
+
+html.dark :is(.ring-black\/5) {
+  --tw-ring-color: var(--stroke-soft);
+}
+
+html.dark :is(.border-black\/10) {
+  border-color: var(--stroke);
+}
+
+html.dark :is(.border-black\/5) {
+  border-color: var(--stroke-soft);
+}
+
+html.dark :is(.divide-black\/10) > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--stroke);
+}
+
+html.dark :is(.hover\:text-black:hover) {
+  color: var(--foreground);
+}
+
+html.dark :is(.hover\:bg-black\/5:hover) {
+  background-color: rgb(255 255 255 / 0.06);
+}
+
+html.dark :is(.bg-black\/5) {
+  background-color: rgb(255 255 255 / 0.08);
+}
+
+html.dark :is(.bg-\[\#e0b12c\], .btn-gold).text-black,
+html.dark :is(.bg-\[\#e0b12c\], .btn-gold) :is(.text-black),
+html.dark :is(.bg-\[\#e0b12c\]).text-black\/70,
+html.dark :is(.bg-\[\#e0b12c\]) :is(.text-black\/70),
+html.dark :is(.file\:text-black)::file-selector-button {
+  color: #000000;
+}
+
+html.dark :is(.bg-\[\#e0b12c\]).hover\:text-black:hover,
+html.dark :is(.bg-\[\#e0b12c\]) .hover\:text-black:hover,
+html.dark :is(.btn-gold).hover\:text-black:hover {
+  color: #000000;
 }
 
 @media print {

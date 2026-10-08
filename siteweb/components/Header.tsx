@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { List, X } from "@phosphor-icons/react";
 import { navLinks } from "@/lib/assets";
 import AccountNav from "@/components/AccountNav";
 import CartDropdown from "@/components/CartDropdown";
+import Logo from "@/components/Logo";
 import ReserveLink from "@/components/ReserveLink";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function Header() {
   const pathname = usePathname();
@@ -30,9 +31,9 @@ export default function Header() {
         aria-label="Main"
         className="relative mx-auto flex h-full flex-col rounded-[19px] bg-black ring-1 ring-white/15 lg:flex-row"
       >
-        <div className="flex w-full items-center justify-between gap-3 p-4 sm:gap-5">
-          <Link href="/" aria-label="Go to home" className="relative w-12 px-3 lg:w-15">
-            <Image src="/logo-square.svg" alt="MAC NATION" width={30} height={30} />
+        <div className="flex w-full items-center justify-between gap-3 p-4 sm:gap-5 lg:gap-6">
+          <Link href="/" aria-label="Go to home" className="relative flex shrink-0 items-center justify-center px-1">
+            <Logo className="h-10 w-28 max-w-none shrink-0 sm:h-11 sm:w-32 lg:h-12 lg:w-40" priority onDark />
           </Link>
           <ul
             className={`hidden flex-2 items-center gap-4 px-8 lg:flex ${
@@ -57,12 +58,7 @@ export default function Header() {
           </ul>
           <AccountNav className="relative hidden whitespace-nowrap p-3 text-sm tracking-wide text-white/55 transition-all duration-300 hover:scale-[1.03] hover:text-white sm:block" />
           <CartDropdown />
-          <Link
-            href="/#equipe"
-            className="btn-black relative hidden h-10 items-center justify-center rounded-lg px-4 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] sm:inline-flex"
-          >
-            Candidater
-          </Link>
+          <ThemeToggle />
           <ReserveLink className="btn-gold relative inline-flex h-10 cursor-pointer items-center justify-center rounded-lg px-5 text-[14px] font-medium transition-all duration-300 active:scale-[0.98] sm:px-8">
             Réserver
           </ReserveLink>
@@ -92,12 +88,7 @@ export default function Header() {
               <AccountNav className="block rounded-lg px-3 py-3 text-sm text-white transition-colors hover:bg-white/10" />
             </li>
             <li>
-              <Link
-                href="/#equipe"
-                className="btn-gold mt-2 flex h-11 items-center justify-center rounded-lg text-sm font-medium"
-              >
-                Candidater
-              </Link>
+              <ThemeToggle variant="menu" />
             </li>
           </ul>
         ) : null}

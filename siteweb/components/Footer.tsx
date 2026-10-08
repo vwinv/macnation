@@ -1,6 +1,9 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { salonInfo } from "@/lib/assets";
+import { DEFAULT_SITE_CONTENT, mergeSiteContent } from "@/lib/site-content";
+import Logo from "@/components/Logo";
 
 const SALON_LINKS = [
   { href: "/rendez-vous", label: "Réserver" },
@@ -8,7 +11,6 @@ const SALON_LINKS = [
   { href: "/abonnements", label: "Abonnements" },
   { href: "/compte", label: "Mon compte" },
   { href: "/contact", label: "Contact" },
-  { href: "/#equipe", label: "Candidater" },
 ] as const;
 
 const LEGAL_LINKS = [
@@ -36,22 +38,60 @@ function LegalNav() {
 }
 
 export default function Footer() {
+  const [salon, setSalon] = useState({
+    address: DEFAULT_SITE_CONTENT.salonAddress,
+    city: DEFAULT_SITE_CONTENT.salonCity,
+    country: DEFAULT_SITE_CONTENT.salonCountry,
+    hours: DEFAULT_SITE_CONTENT.salonHours,
+    phone: DEFAULT_SITE_CONTENT.salonPhone,
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/catalog/site-content")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((json) => {
+        if (cancelled || !json) return;
+        const raw =
+          json && typeof json === "object" && "content" in json && json.content !== undefined
+            ? json.content
+            : json;
+        const content = mergeSiteContent(raw);
+        setSalon({
+          address: content.salonAddress,
+          city: content.salonCity,
+          country: content.salonCountry,
+          hours: content.salonHours,
+          phone: content.salonPhone,
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <footer id="mainFooter" className="w-full bg-black text-white">
       <div className="mx-auto w-full max-w-[120rem] px-6 md:px-10 lg:px-16 xl:px-20">
         <div className="flex flex-col flex-wrap items-center justify-between gap-12 p-4 pt-10 sm:flex-row lg:flex-nowrap lg:gap-8 lg:p-0 lg:pt-14">
           <Link href="/" aria-label="MAC NATION accueil" className="flex items-center gap-3">
-            <Image src="/logo-square.svg" alt="" width={36} height={36} />
+            <Logo className="h-10 w-24" onDark />
             <span className="font-bebas text-3xl tracking-wide text-white">MAC NATION</span>
           </Link>
           <div className="text-center sm:text-left">
             <p className="text-[18px] font-semibold text-white">Le salon</p>
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
-              {salonInfo.address}
+              {salon.address}
               <br />
-              {salonInfo.city}, {salonInfo.country}
+              {salon.city}, {salon.country}
             </p>
-            <p className="mt-2 text-sm text-white/50">{salonInfo.hours}</p>
+            <p className="mt-2 text-sm text-white/50">{salon.hours}</p>
+            {salon.phone ? (
+              <a className="mt-2 block text-sm text-white/70 hover:text-[#e0b12c]" href={`tel:${salon.phone.replace(/\s/g, "")}`}>
+                {salon.phone}
+              </a>
+            ) : null}
           </div>
         </div>
         <div className="flex w-full items-center justify-center py-4 lg:py-8">

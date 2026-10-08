@@ -15,7 +15,7 @@ Future<bool> completeOnlinePayment(
   String? invoiceId,
   String? pendingId,
   required int amount,
-  required PaymentMethod method,
+  PaymentMethod? method,
   required String name,
   required String phone,
   String? email,
@@ -49,7 +49,7 @@ class SoftPayScreen extends StatefulWidget {
     this.invoiceId,
     this.pendingId,
     required this.amount,
-    required this.method,
+    this.method,
     required this.name,
     required this.phone,
     this.email,
@@ -59,7 +59,7 @@ class SoftPayScreen extends StatefulWidget {
   final String? invoiceId;
   final String? pendingId;
   final int amount;
-  final PaymentMethod method;
+  final PaymentMethod? method;
   final String name;
   final String phone;
   final String? email;
@@ -69,26 +69,39 @@ class SoftPayScreen extends StatefulWidget {
   State<SoftPayScreen> createState() => _SoftPayScreenState();
 }
 
-class _SoftPayScreenState extends State<SoftPayScreen> {
+class _SoftPayScreenState extends State<SoftPayScreen>
+    with WidgetsBindingObserver {
   bool _starting = true;
+  bool _opening = false;
   bool _paid = false;
   String? _error;
   String _message = '';
+  String? _payUrl;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _start();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _start();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _timer?.cancel();
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && !_paid) _check();
+  }
+
   Future<void> _start() async {
+    if (!mounted) return;
     setState(() {
       _starting = true;
       _error = null;
@@ -106,34 +119,58 @@ class _SoftPayScreenState extends State<SoftPayScreen> {
       setState(() {
         _starting = false;
         _message = launch.message;
+        _payUrl = launch.url;
       });
-      if (launch.url != null) {
-        final result = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => PayTech(
-              launch.url!,
-              appBarTitle: 'Paiement MAC NATION',
-              appBarBgColor: AppColors.gold,
-              centerTitle: true,
-            ),
-          ),
-        );
-        if (!mounted) return;
-        if (result == true) await _check();
-      }
       _watch();
+      if (launch.url == null || launch.url!.isEmpty) {
+        setState(() {
+          _error = launch.message.isNotEmpty
+              ? launch.message
+              : 'Impossible d’ouvrir PayTech.';
+        });
+        return;
+      }
+      await _openPaytech();
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() {
         _starting = false;
         _error = error.message;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _starting = false;
-        _error = 'Paiement indisponible pour le moment.';
+        _error = error.toString().replaceFirst('Exception: ', '');
       });
+    }
+  }
+
+  Future<void> _openPaytech() async {
+    final url = _payUrl;
+    if (url == null || url.isEmpty || !mounted || _opening || _paid) return;
+    _opening = true;
+    try {
+      final paymentResult = await Navigator.push<bool>(
+        context,
+        MaterialPageRoute(
+          builder: (context) => PayTech(
+            url,
+            appBarTitle: 'Paiement MAC NATION',
+            appBarBgColor: AppColors.ink,
+            appBarTextStyle: const TextStyle(
+              color: AppColors.onInk,
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
+            ),
+            centerTitle: true,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (paymentResult == true) await _check();
+    } finally {
+      _opening = false;
     }
   }
 
@@ -159,32 +196,34 @@ class _SoftPayScreenState extends State<SoftPayScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Paiement')),
+      appBar: AppBar(title: Text('PAIEMENT')),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+          padding: EdgeInsets.fromLTRB(24, 16, 24, 24),
           child: Column(
             children: [
-              const Spacer(),
+              Spacer(),
               Text(
                 formatFcfa(widget.amount),
                 style: Theme.of(context).textTheme.displayLarge,
               ),
-              const SizedBox(height: 8),
+              SizedBox(height: 8),
               Text(
-                paymentLabel(widget.method),
-                style: const TextStyle(color: AppColors.gold),
+                widget.method == null
+                    ? 'Le paiement s’ouvre sur PayTech.'
+                    : paymentLabel(widget.method!),
+                style: TextStyle(color: AppColors.gold),
               ),
-              const SizedBox(height: 24),
+              SizedBox(height: 24),
               if (_starting)
-                const CircularProgressIndicator(color: AppColors.gold)
+                CircularProgressIndicator(color: AppColors.gold)
               else if (_paid) ...[
-                const Icon(Icons.check_circle, color: AppColors.gold, size: 56),
-                const SizedBox(height: 16),
+                Icon(Icons.check_circle, color: AppColors.gold, size: 56),
+                SizedBox(height: 16),
                 Text(
                   widget.isBooking ? 'Rendez-vous pris' : 'Paiement reçu',
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.of(context).onDark,
                     fontWeight: FontWeight.w700,
                     fontSize: 18,
                   ),
@@ -200,7 +239,7 @@ class _SoftPayScreenState extends State<SoftPayScreen> {
                 Text(
                   _error ??
                       (_message.isEmpty
-                          ? 'Ouvre ton app pour valider. MAC NATION reste ouvert.'
+                          ? 'Le paiement s’ouvre sur PayTech. On confirme tout seul dès que c’est validé.'
                           : _message),
                   textAlign: TextAlign.center,
                 ),
@@ -209,6 +248,13 @@ class _SoftPayScreenState extends State<SoftPayScreen> {
                   const Text(
                     'Rien n’est enregistré tant que le paiement n’est pas validé.',
                     textAlign: TextAlign.center,
+                  ),
+                ] else ...[
+                  const SizedBox(height: 16),
+                  const Text(
+                    'En attente de confirmation sur ton téléphone…',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: AppColors.gold),
                   ),
                 ],
               ],
@@ -219,16 +265,23 @@ class _SoftPayScreenState extends State<SoftPayScreen> {
                   onPressed: () => Navigator.pop(context, true),
                 )
               else ...[
+                if (_payUrl != null) ...[
+                  GoldButton(
+                    label: 'Continuer le paiement',
+                    onPressed: _starting ? null : _openPaytech,
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 GoldButton(
-                  label: _error == null ? 'J’ai payé' : 'Réessayer',
+                  label: _error == null ? 'Relancer le paiement' : 'Réessayer',
                   loading: _starting,
                   onPressed: _starting
                       ? null
                       : () {
-                          if (_error != null) {
+                          if (_payUrl == null || _error != null) {
                             _start();
                           } else {
-                            _check();
+                            _openPaytech();
                           }
                         },
                 ),

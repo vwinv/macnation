@@ -1,12 +1,38 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { v2 as cloudinary } from 'cloudinary';
 
+const logger = new Logger('Cloudinary');
+
+function envStr(config: ConfigService, key: string) {
+  const raw = config.get<string>(key)?.trim();
+  if (!raw) return undefined;
+  if (
+    (raw.startsWith('"') && raw.endsWith('"')) ||
+    (raw.startsWith("'") && raw.endsWith("'"))
+  ) {
+    return raw.slice(1, -1).trim() || undefined;
+  }
+  return raw;
+}
+
+function cloudinaryFailureMessage(
+  error?: { message?: string; http_code?: number },
+  fallback = 'Impossible d’envoyer la photo sur Cloudinary.',
+) {
+  const message = error?.message?.trim() || '';
+  if (error?.http_code === 401 || /invalid signature/i.test(message)) {
+    return 'Cloudinary refuse l’envoi : identifiants invalides. Vérifie CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY et CLOUDINARY_API_SECRET dans api_mac_nation/.env, puis relance l’API.';
+  }
+  return message ? `Cloudinary : ${message}` : fallback;
+}
+
 export function configureCloudinary(config: ConfigService) {
-  const url = config.get<string>('CLOUDINARY_URL')?.trim();
-  const cloudName = config.get<string>('CLOUDINARY_CLOUD_NAME')?.trim();
-  const apiKey = config.get<string>('CLOUDINARY_API_KEY')?.trim();
-  const apiSecret = config.get<string>('CLOUDINARY_API_SECRET')?.trim();
+  const url = envStr(config, 'CLOUDINARY_URL');
+  const cloudName = envStr(config, 'CLOUDINARY_CLOUD_NAME');
+  const apiKey = envStr(config, 'CLOUDINARY_API_KEY');
+  const apiSecret = envStr(config, 'CLOUDINARY_API_SECRET');
+  cloudinary.config(true);
   if (url) {
     const match = url.match(/^cloudinary:\/\/([^:]+):([^@]+)@([^/]+)/);
     if (!match) {
@@ -43,6 +69,11 @@ export function careerFolder(config: ConfigService) {
   return root ? `${root}/candidatures` : 'candidatures';
 }
 
+export function siteFolder(config: ConfigService) {
+  const root = cloudinaryFolder(config);
+  return root ? `${root}/site` : 'site';
+}
+
 export function uploadCareerFile(
   buffer: Buffer,
   originalName: string,
@@ -64,11 +95,13 @@ export function uploadCareerFile(
       },
       (error, result) => {
         if (error || !result?.secure_url) {
+          logger.error(error?.message || 'Upload Cloudinary sans URL');
           reject(
             new BadRequestException(
-              error?.message
-                ? `Cloudinary : ${error.message}`
-                : 'Impossible d’envoyer le fichier sur Cloudinary.',
+              cloudinaryFailureMessage(
+                error,
+                'Impossible d’envoyer le fichier sur Cloudinary.',
+              ),
             ),
           );
           return;
@@ -89,9 +122,8 @@ export function uploadProductImage(buffer: Buffer, folder?: string) {
       },
       (error, result) => {
         if (error || !result?.secure_url) {
-          reject(
-            new BadRequestException('Impossible d’envoyer la photo sur Cloudinary.'),
-          );
+          logger.error(error?.message || 'Upload Cloudinary sans URL');
+          reject(new BadRequestException(cloudinaryFailureMessage(error)));
           return;
         }
         resolve(result.secure_url);

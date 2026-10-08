@@ -69,6 +69,14 @@ export class OauthService {
     ].filter(Boolean);
   }
 
+  googleAudiences() {
+    return [
+      this.env('GOOGLE_CLIENT_ID', 'NEXT_PUBLIC_GOOGLE_CLIENT_ID'),
+      this.env('GOOGLE_IOS_CLIENT_ID'),
+      this.env('GOOGLE_ANDROID_CLIENT_ID'),
+    ].filter(Boolean);
+  }
+
   publicConfig() {
     const apple = this.env('APPLE_CLIENT_ID', 'NEXT_PUBLIC_APPLE_CLIENT_ID');
     const origin = siteUrl(this.config);
@@ -77,13 +85,16 @@ export class OauthService {
       apple,
       appleEnabled: this.appleAudiences().length > 0,
       appleRedirect: `${origin}/compte/login`,
-      facebook: this.env('FACEBOOK_APP_ID', 'NEXT_PUBLIC_FACEBOOK_APP_ID'),
       siteUrl: origin,
     };
   }
 
   facebookConfigured() {
-    return Boolean(this.publicConfig().facebook && this.env('FACEBOOK_APP_SECRET'));
+    return Boolean(this.facebookAppId() && this.env('FACEBOOK_APP_SECRET'));
+  }
+
+  private facebookAppId() {
+    return this.env('FACEBOOK_APP_ID', 'NEXT_PUBLIC_FACEBOOK_APP_ID');
   }
 
   confirmationCode(facebookUserId: string) {
@@ -126,11 +137,11 @@ export class OauthService {
     credential: string,
     nonce?: string,
   ): Promise<VerifiedOauth> {
-    const clientId = this.publicConfig().google;
-    if (!clientId) throw new OauthError('OAUTH_MISSING');
+    const audiences = this.googleAudiences();
+    if (!audiences.length) throw new OauthError('OAUTH_MISSING');
     const { payload } = await jwtVerify(credential, googleJwks, {
       issuer: ['https://accounts.google.com', 'accounts.google.com'],
-      audience: clientId,
+      audience: audiences,
     });
     if (nonce && payload.nonce && payload.nonce !== nonce) {
       throw new OauthError('OAUTH_NONCE');
@@ -183,7 +194,7 @@ export class OauthService {
 
   /** Facebook Limited Login (iOS / Android) sends an OIDC JWT, not a Graph token. */
   private async verifyFacebookIdToken(credential: string): Promise<VerifiedOauth> {
-    const appId = this.publicConfig().facebook;
+    const appId = this.facebookAppId();
     try {
       const result = await jwtVerify(credential, facebookLimitedJwks, {
         issuer: ['https://www.facebook.com', 'https://facebook.com'],
@@ -215,7 +226,7 @@ export class OauthService {
   private async verifyFacebookAccessToken(
     accessToken: string,
   ): Promise<VerifiedOauth> {
-    const appId = this.publicConfig().facebook;
+    const appId = this.facebookAppId();
     const secret = this.env('FACEBOOK_APP_SECRET');
     const debugUrl = new URL(`${FACEBOOK_GRAPH}/debug_token`);
     debugUrl.searchParams.set('input_token', accessToken);

@@ -29,6 +29,10 @@ String formatDateLong(DateTime date) {
   return '${date.day} ${monthNamesFr[date.month - 1]} ${date.year}';
 }
 
+String formatJournalStamp(DateTime date) {
+  return '${date.day} ${monthNamesFr[date.month - 1].toUpperCase()} ${date.year}';
+}
+
 String formatDateShort(DateTime date) {
   final month = monthNamesFr[date.month - 1];
   return '${date.day} ${month.length <= 4 ? month : '${month.substring(0, 3)}.'}';

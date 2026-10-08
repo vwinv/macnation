@@ -4,8 +4,7 @@ import AddToCartButton from "@/components/AddToCartButton";
 import CatalogImage from "@/components/CatalogImage";
 import PageHero from "@/components/PageHero";
 import Reveal from "@/components/Reveal";
-import { getCatalogProducts } from "@/lib/api";
-import { pageImages } from "@/lib/assets";
+import { getCatalogProducts, getSiteContent } from "@/lib/api";
 import { formatFcfa } from "@/lib/money";
 
 export const metadata: Metadata = {
@@ -15,7 +14,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function BoutiquePage() {
-  const products = await getCatalogProducts();
+  const [products, content] = await Promise.all([getCatalogProducts(), getSiteContent()]);
 
   return (
     <main>
@@ -25,7 +24,7 @@ export default async function BoutiquePage() {
             Boutique <span className="!text-[#e0b12c]">capillaire</span>
           </>
         }
-        image={pageImages.boutique}
+        image={content.images.boutique}
         overlay="blur"
       />
       <section className="mx-auto max-w-[1100px] px-6 pb-28 pt-12 sm:pt-16">

@@ -16,11 +16,11 @@ export default async function SuppressionDonneesPage({
   return (
     <LegalArticle
       title="Suppression des données"
-      subtitle="Demande Facebook prise en compte."
+      subtitle="Demande de suppression prise en compte."
     >
       <p>
-        Si tu as demandé la suppression de tes données via Facebook, le compte MAC NATION
-        lié à cet identifiant a été oublié (identifiants sociaux retirés, nom anonymisé).
+        Si tu as demandé la suppression de tes données, le compte MAC NATION lié à cet
+        identifiant a été oublié (identifiants sociaux retirés, nom anonymisé).
       </p>
       {code ? (
         <p>
@@ -30,7 +30,7 @@ export default async function SuppressionDonneesPage({
         <p>Aucun code n’était joint à cette page. Tu peux quand même nous écrire si besoin.</p>
       )}
       <p>
-        Pour toute autre demande (accès, correction, suppression hors Facebook), passe par la{" "}
+        Pour toute autre demande (accès, correction, suppression), passe par la{" "}
         <Link href="/contact">page Contact</Link> ou au salon Nord Foire.
       </p>
     </LegalArticle>
